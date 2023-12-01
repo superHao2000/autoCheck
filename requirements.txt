@@ -1,0 +1,4 @@
+PyYAML~=6.0.1
+loguru~=0.7.2
+requests~=2.31.0
+beautifulsoup4~=4.12.2

@@ -1,3 +1,5 @@
+# new Env("YuChen_Check")
+# cron 30 8 * * * main.py
 import requests
 from bs4 import BeautifulSoup
 from requests.cookies import RequestsCookieJar
