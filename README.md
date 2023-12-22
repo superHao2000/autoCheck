@@ -23,9 +23,9 @@
 
 3. 在青龙面板的定时任务中运行名称为 YuChen_Check 的任务，查看日志检查确定成功后即可禁用然后进行下一步
 
-4. 在青龙面板的脚本管理中点击 superHao2000_yuchenCheck_master 文件夹，选中config.yaml 文件，填写账号密码和浏览器UA
+4. 在青龙面板的脚本管理中点击 superHao2000_yuchenCheck_master 文件夹，选中config.yaml 文件，填写账号、密码和浏览器UA
 
-5. 在以来管理添加依赖
+5. 在依赖管理添加依赖
     ```
     PyYAML
    loguru

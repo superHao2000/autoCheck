@@ -5,6 +5,10 @@ from utils.logger import log
 
 
 class LoginResultHandler:
+    """
+    处理返回的信息
+    """
+
     def __init__(self, consent: dict):
         self.success = consent["success"]
         self.msg = consent["msg"]
@@ -28,3 +32,9 @@ def systesm_info():
     log.info(show_info('Python 版本', str(platform.python_version()) + ' ' + str(platform.python_build())))
     if getproxies():
         log.info(show_info('系统代理', getproxies()))
+
+
+class ObjDictTool:
+    @staticmethod
+    def to_obj(obj: object, **data):
+        obj.__dict__.update(data)
