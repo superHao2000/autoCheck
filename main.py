@@ -23,6 +23,7 @@ def main():
             is_a = account.yuchen_login()
             if is_a:
                 account.yuchen_check()
+                account.yuchen_info()
             else:
                 continue
     else:

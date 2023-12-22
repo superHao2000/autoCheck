@@ -5,3 +5,6 @@
 /.idea
 /venv
 /logs
+*.log
+test.py
+config.yaml

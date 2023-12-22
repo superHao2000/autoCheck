@@ -7,6 +7,7 @@ from utils.util import LoginResultHandler
 
 class Account:
     """处理账号信息"""
+
     # user_agent: str = "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/119.0"
 
     def __init__(self, account):
@@ -19,6 +20,15 @@ class Account:
 
     def __str__(self):
         return f'username={self.username},password={self.password},user_agent={self.user_agent}'
+
+    def headers(self):
+        return {
+            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+            "Host": "yuchen.tonghuaios.com",
+            "Origin": "https://yuchen.tonghuaios.com",
+            # "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/119.0"
+            "User-Agent": self.user_agent
+        }
 
     @staticmethod
     def get_token() -> str:
@@ -51,13 +61,14 @@ class Account:
             "action": "userlogin_form",
             "token": self.token
         }
-        headers = {
-            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-            "Host": "yuchen.tonghuaios.com",
-            "Origin": "https://yuchen.tonghuaios.com",
-            # "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/119.0"
-            "User-Agent": self.user_agent
-        }
+        # headers = {
+        #     "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        #     "Host": "yuchen.tonghuaios.com",
+        #     "Origin": "https://yuchen.tonghuaios.com",
+        #     # "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/119.0"
+        #     "User-Agent": self.user_agent
+        # }
+        headers = self.headers()
         response = requests.post(url=url, data=data, headers=headers)
         log.debug(response.json())
         message = LoginResultHandler(response.json())
@@ -79,13 +90,7 @@ class Account:
         data = {
             "action": "daily_sign"
         }
-        headers = {
-            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-            "Host": "yuchen.tonghuaios.com",
-            "Origin": "https://yuchen.tonghuaios.com",
-            "User-Agent": self.user_agent,
-            # "Cookie": cookies
-        }
+        headers = self.headers()
         response = requests.post(url=url, data=data, headers=headers, cookies=self.cookie)
         log.debug(response.json())
         message = LoginResultHandler(response.json())
@@ -97,11 +102,11 @@ class Account:
         :return:
         """
         url = "https://yuchen.tonghuaios.com/users?tab=credit"
-        headers = {
-            "Hosts": "yuchen.tonghuaios.com"
-        }
-        response = requests.get(url=url)
-        print(response.text)
+        headers = self.headers()
+        response = requests.get(url=url, headers=headers, cookies=self.cookie)
+        soup = BeautifulSoup(response.text, "html.parser")
+        text = soup.find('div', {'class': 'header_tips'}).text
+        log.info(text)
 
 
 if __name__ == '__main__':
