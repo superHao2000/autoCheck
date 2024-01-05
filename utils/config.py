@@ -55,25 +55,25 @@ class Config(object):
 
     def write_config(self):
         """写入配置文件"""
-        config_json = {
+        config_dict = {
             'Account': [
                 {
                     "username": '',
                     "password": '',
-                    "user_agent": ''
+                    "user_agent": '',
                 },
                 {
                     "username": '',
                     "password": '',
-                    "user_agent": ''
+                    "user_agent": '',
                 },
             ],
             'mail_host': '',
             'mail_user': '',
-            'mail_pass': ''
+            'mail_pass': '',
         }
         with open(self.file_path, 'w') as file:
-            file.writelines(yaml.safe_dump(config_json))
+            file.write(yaml.dump(config_dict, allow_unicode=True, sort_keys=False))
         log.info("生成配置文件成功")
 
 

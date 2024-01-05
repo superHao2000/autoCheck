@@ -19,6 +19,9 @@ def main():
         for i in range(len(accounts)):
             log.info(f"开始账号{i + 1}签到")
             account = Account(accounts[i])
+            if account.user_agent == "" or account.username == "" or account.password == "":
+                log.info("账号信息不完整，跳过此账号")
+                continue
             ObjDictTool.to_obj(account, **accounts[i])
             is_a = account.yuchen_login()
             if is_a:
