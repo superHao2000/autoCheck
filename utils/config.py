@@ -14,10 +14,10 @@ config_PATH = os.path.join(PATH, 'config.yaml')
 
 class Config(object):
     """配置类"""
-
     Account: dict = {
         "YuChen": list,
         "AirPort": list,
+        "GlaDos": list,
     }
     Push: dict = {}
 
@@ -45,14 +45,14 @@ class Config(object):
             'Account': {
                 'YuChen': [
                     {
-                        "username": '',
-                        "password": '',
-                        "user_agent": '',
+                        "username": "",
+                        "password": "",
+                        "user_agent": "",
                     },
                     {
-                        "username": '',
-                        "password": '',
-                        "user_agent": '',
+                        "username": "",
+                        "password": "",
+                        "user_agent": "",
                     },
                 ],
                 'AirPort': [
@@ -60,11 +60,23 @@ class Config(object):
                         "base_url": "",
                         "email": "",
                         "password": "",
+                        "user_agent": "",
                     },
                     {
                         "base_url": "",
                         "email": "",
                         "password": "",
+                        "user_agent": "",
+                    },
+                ],
+                'GlaDos': [
+                    {
+                        "cookies": "",
+                        "user_agent": "",
+                    },
+                    {
+                        "cookies": "",
+                        "user_agent": "",
                     },
                 ]
             },

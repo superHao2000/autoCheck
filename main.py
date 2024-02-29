@@ -24,5 +24,6 @@ if __name__ == '__main__':
     package = "checkin"
     modules = get_modules(package)
     for module in modules:
+        # 动态导入并执行每个模块的main函数
         __import__(package + module, fromlist="main").main()
         sleep_random()
