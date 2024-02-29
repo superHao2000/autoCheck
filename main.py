@@ -1,39 +1,28 @@
 # new Env("YuChen_Check")
 # cron 30 8 * * * main.py
-import os.path
 
-from utils.config import Config
-from utils.logger import log
-from utils.util import ObjDictTool
-from utils.yuchen import Account
+import os
 
-FILE_PATH = 'config.yaml'
+from utils.util import sleep_random
 
 
-def main():
-    config = Config(FILE_PATH)
-    if os.path.exists(FILE_PATH):
-        config.read_config()
-        accounts = config.Accounts
-        log.info(f"检测到{len(accounts)}个账号")
-        for i in range(len(accounts)):
-            log.info(f"开始账号{i + 1}签到")
-            account = Account(accounts[i])
-            if account.user_agent == "" or account.username == "" or account.password == "":
-                log.info("账号信息不完整，跳过此账号")
-                continue
-            ObjDictTool.to_obj(account, **accounts[i])
-            is_a = account.yuchen_login()
-            if is_a:
-                account.yuchen_check()
-                account.yuchen_info()
-            else:
-                continue
-    else:
-        log.info("配置文件不存在")
-        config.write_config()
-        log.info("请填写配置文件后重新启动")
+# # 找出模块里所有的类名
+def get_modules(packages="."):
+    """
+    获取包名下所有非__init__的模块名
+    """
+    modules = []
+    files = os.listdir(packages)
+    for file in files:
+        if not file.startswith("__"):
+            name, ext = os.path.splitext(file)
+            modules.append("." + name)
+    return modules
 
 
 if __name__ == '__main__':
-    main()
+    package = "checkin"
+    modules = get_modules(package)
+    for module in modules:
+        __import__(package + module, fromlist="main").main()
+        sleep_random()

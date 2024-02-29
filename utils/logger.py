@@ -4,9 +4,6 @@ import sys
 from loguru import logger
 
 
-# message = ""
-
-
 def LogFilter(record):
     # global message
     message = ""
@@ -15,18 +12,8 @@ def LogFilter(record):
     return True
 
 
-# def get_message():
-#     """
-#     说明:
-#         返回消息
-#     返回:
-#         收集到的消息
-#     """
-#     global message
-#     return message
-
-
-path_log = os.path.join("logs", '日志文件.log')
+log_PATH = os.path.join(os.path.abspath(os.path.dirname(os.path.dirname(__file__))), "logs")
+path_log = os.path.join(log_PATH, '日志文件.log')
 log = logger
 log.remove()
 

@@ -1,40 +1,28 @@
+import os.path
 import sys
 
 import yaml
 from yaml.parser import ParserError
 
+# from checkin.air import Air
+# from checkin.yuchen import YuChen
 from utils.logger import log
-from utils.yuchen import Account
 
-
-# def account_init(accounts):
-#     account_list = []
-#     for account in accounts:
-#         account = Account(account['username'], account['password'], account['user_agent'])
-#         account_list.append(account)
-#     return account_list
+PATH = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+config_PATH = os.path.join(PATH, 'config.yaml')
 
 
 class Config(object):
     """配置类"""
 
-    Accounts: list = [Account]
-    mail_host: str = ''
-    mail_user: str = ''
-    mail_pass: str = ''
+    Account: dict = {
+        "YuChen": list,
+        "AirPort": list,
+    }
+    Push: dict = {}
 
     def __init__(self, file_path):
         self.file_path = file_path
-
-    # def is_config(self):
-    #     """判断文件是否存在"""
-    #     if os.path.exists(self.file_path):
-    #         log.info("检测到配置文件")
-    #         return True
-    #     else:
-    #         log.info("配置文件不存在")
-    #         self.write_config()
-    #         return False
 
     def read_config(self):
         """读取配置文件"""
@@ -42,11 +30,9 @@ class Config(object):
         try:
             with open(self.file_path, 'r', encoding='utf-8') as f:
                 data = f.read()
-                configsss = yaml.safe_load(data)
-                self.Accounts = configsss["Account"]
-                self.mail_host = configsss["mail_host"]
-                self.mail_user = configsss["mail_user"]
-                self.mail_pass = configsss["mail_pass"]
+                config = yaml.safe_load(data)
+                self.Account = config["Account"]
+                self.Push = config["Push"]
         except ParserError:
             log.info("配置文件填写错误")
             sys.exit()
@@ -56,28 +42,48 @@ class Config(object):
     def write_config(self):
         """写入配置文件"""
         config_dict = {
-            'Account': [
-                {
-                    "username": '',
-                    "password": '',
-                    "user_agent": '',
-                },
-                {
-                    "username": '',
-                    "password": '',
-                    "user_agent": '',
-                },
-            ],
-            'mail_host': '',
-            'mail_user': '',
-            'mail_pass': '',
+            'Account': {
+                'YuChen': [
+                    {
+                        "username": '',
+                        "password": '',
+                        "user_agent": '',
+                    },
+                    {
+                        "username": '',
+                        "password": '',
+                        "user_agent": '',
+                    },
+                ],
+                'AirPort': [
+                    {
+                        "base_url": "",
+                        "email": "",
+                        "password": "",
+                    },
+                    {
+                        "base_url": "",
+                        "email": "",
+                        "password": "",
+                    },
+                ]
+            },
+            'Push': '',
         }
         with open(self.file_path, 'w') as file:
             file.write(yaml.dump(config_dict, allow_unicode=True, sort_keys=False))
         log.info("生成配置文件成功")
 
 
+Conf = Config(config_PATH)
+if os.path.exists(config_PATH):
+    Conf.read_config()
+    # config_YuChen = Conf.Account["YuChen"]
+    # config_Air = Conf.Account["Air"]
+    # config_Push = Conf.Push
+else:
+    log.info("配置文件不存在")
+    Conf.write_config()
+    log.info("请填写配置文件后重新启动")
 if __name__ == '__main__':
-    config = Config('../config.yaml')
-    config.read_config()
-    print(config.Accounts)
+    print(Conf.Push["onepush"])

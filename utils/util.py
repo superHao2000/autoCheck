@@ -1,4 +1,6 @@
 import platform
+import random
+import time
 from urllib.request import getproxies
 
 from utils.logger import log
@@ -32,6 +34,10 @@ def systesm_info():
     log.info(show_info('Python 版本', str(platform.python_version()) + ' ' + str(platform.python_build())))
     if getproxies():
         log.info(show_info('系统代理', getproxies()))
+
+
+def sleep_random():
+    time.sleep(random.randint(1, 10))
 
 
 class ObjDictTool:

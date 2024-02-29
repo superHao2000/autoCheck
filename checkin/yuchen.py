@@ -1,19 +1,24 @@
 import requests
 from bs4 import BeautifulSoup
 
+from utils.config import Conf
 from utils.logger import log
 from utils.util import LoginResultHandler
+from utils.util import sleep_random
+
+config_YuChen = Conf.Account["YuChen"]
+name = "雨晨ios资源"
 
 
-class Account:
+class YuChen:
     """处理账号信息"""
 
     # user_agent: str = "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/119.0"
 
-    def __init__(self, account):
-        self.username = account["username"]
-        self.password = account["password"]
-        self.user_agent = account["user_agent"]
+    def __init__(self, yuchen):
+        self.username = yuchen["username"]
+        self.password = yuchen["password"]
+        self.user_agent = yuchen["user_agent"]
         self.session = requests.session()
         self.cookie = None
         self.token = self.get_token()
@@ -110,6 +115,32 @@ class Account:
         text = soup.find('div', {'class': 'header_tips'}).text
         log.info(text)
 
+    def yuchen_sign(self):
+        """判断账号信息是否完整"""
+        if self.user_agent == "" or self.username == "" or self.password == "":
+            log.info("账号信息不完整，跳过此账号")
+            return False
+        return True
+
+    def run(self):
+        """运行"""
+        is_a = self.yuchen_login()
+        if is_a:
+            self.yuchen_check()
+            self.yuchen_info()
+
+
+def main():
+    log.info(f"{name}签到开始执行")
+    log.info(f"{name}检测到{len(config_YuChen)}个账号")
+    for i in range(len(config_YuChen)):
+        yuchen = YuChen(config_YuChen[i])
+        if yuchen.yuchen_sign():
+            yuchen.run()
+            sleep_random()
+        continue
+
+
 
 if __name__ == '__main__':
-    pass
+    main()
