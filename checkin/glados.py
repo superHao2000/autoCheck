@@ -1,3 +1,5 @@
+import json
+
 import requests
 
 from utils.config import Conf
@@ -27,13 +29,13 @@ class GlaDos(object):
         payload = {
             'token': 'glados.one'
         }
-        checkin = self.session.post(url, headers=headers, data=payload)
+        checkin = self.session.post(url, headers=headers, data=json.dumps(payload))
         if checkin.status_code == 200:
             result = checkin.json()
             # 获取签到结果
             message = result.get('message')
             points = result.get("points")
-            if message == 'Please Try Tomorrow':
+            if message == 'Checkin Repeats! Please Try Tomorrow':
                 message = "今日已签到"
             elif "Checkin! Got" in message:
                 message = f"签到成功，points+{points}"
@@ -75,6 +77,6 @@ def main():
 
 
 if __name__ == '__main__':
-    # main()
-    glados = GlaDos(config_GlaDos[0])
-    glados.checkin()
+    main()
+    # glados = GlaDos(config_GlaDos[0])
+    # glados.checkin()
