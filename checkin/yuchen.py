@@ -56,7 +56,7 @@ class YuChen:
         """
         登录网站
         """
-        log.info("开始登录")
+        # log.info("开始登录")
         url = "https://yuchen.tonghuaios.com/wp-admin/admin-ajax.php"
         data = {
             "user_login": self.username,
@@ -90,7 +90,7 @@ class YuChen:
         yuchen.tonghuaios.com
         :return:
         """
-        log.info("开始签到")
+        # log.info("开始签到")
         url = "https://yuchen.tonghuaios.com/wp-admin/admin-ajax.php"
         data = {
             "action": "daily_sign"
@@ -136,10 +136,12 @@ def main():
     for i in range(len(config_YuChen)):
         yuchen = YuChen(config_YuChen[i])
         if yuchen.yuchen_sign():
-            yuchen.run()
+            try:
+                yuchen.run()
+            except Exception as e:
+                log.info(f"账号{i + 1}签到失败")
             sleep_random()
         continue
-
 
 
 if __name__ == '__main__':

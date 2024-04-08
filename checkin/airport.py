@@ -52,22 +52,24 @@ class AirPort(object):
         response = json.loads(response.text)
         log.info(response["msg"])
 
-
-def complete(account):
-    if account['base_url'] == "" or account['email'] == "" or account['password'] == "":
-        log.info("账号信息不完整,跳过此账号")
-        return False
-    return True
+    def complete(self):
+        if self.base_url == "" or self.email == "" or self.password == "":
+            log.info("账号信息不完整,跳过此账号")
+            return False
+        return True
 
 
 def main():
     log.info(f"{name}签到开始执行")
     log.info(f"检测到{len(config_AirPort)}个账号")
     for i in range(len(config_AirPort)):
-        account = config_AirPort[i]
-        if complete(account):
-            account = AirPort(account)
-            account.checkin()
+        account = AirPort(config_AirPort[i])
+        if account.complete():
+            try:
+                account.checkin()
+            except Exception as e:
+                log.info(f"账号{i + 1}签到失败")
+                continue
             sleep_random()
         continue
 

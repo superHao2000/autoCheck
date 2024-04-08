@@ -70,9 +70,13 @@ def main():
     for i in range(len(config_GlaDos)):
         glados = GlaDos(config_GlaDos[i])
         if glados.complete():
-            glados.checkin()
-            glados.state()
-            sleep_random()
+            try:
+                glados.checkin()
+                glados.state()
+                sleep_random()
+            except Exception as e:
+                log.info(f"账号{i + 1}签到失败")
+
         continue
 
 

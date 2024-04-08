@@ -97,5 +97,6 @@ else:
     log.info("配置文件不存在")
     Conf.write_config()
     log.info("请填写配置文件后重新启动")
+    sys.exit()
 if __name__ == '__main__':
     print(Conf.Push["onepush"])
