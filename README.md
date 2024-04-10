@@ -23,7 +23,7 @@
     ql repo https://github.com/superHao2000/autoCheck.git "main" "" "utils|config" "master" "py|yaml"
    ```
 
-2. 在青龙面板的定时任务中运行名称为 auto_Check 的任务，查看日志检查确定生成了配置文件 cconfig.yaml
+2. 在青龙面板的定时任务中运行名称为 auto_Check 的任务，查看日志检查确定生成了配置文件 config.yaml
 
 3. 在青龙面板的脚本管理中找到 superHao2000_autoCheck_master 文件夹，填写config.yaml配置文件
 
@@ -36,4 +36,4 @@
    urllib3~=2.1.0
    pydantic~=2.6.4
    ```
-5. 在青龙面板的定时任务中运行名称为 auto_Check的任务，查看日志检查确定成功运行即可
+5. 重新运行 auto_Check 任务，查看日志检查确定成功运行，每天8.30自动运行
