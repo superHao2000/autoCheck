@@ -1,43 +1,39 @@
-# YuChenCheck
+# 自用签到脚本
 
-一个签到攒积分换取ios的软件或者游戏的小脚本
+## 支持网站
 
-[雨晨ios资源网站](https://yuchen.tonghuaios.com/)
+1. [雨晨ios资源网站](https://yuchen.tonghuaios.com/)
+2. [Glados](https://glados.rocks/)
+3. 飞机场
 
-新入手的ipad无奈没有游戏可玩，发现了这个网站可以签到攒积分换取共享账号下载游戏，写个签到脚本薅羊毛，每天稳定两积分，积少成多，
-80积分换取一个月的acrade，两个账号就可以实现无限游玩
-***
-
-### 功能
+## 功能
 
 - [x] 多账号
-- [ ] 邮箱推送
+- [ ] 推送
 - [ ] docker
-### 使用说明
 
-支持本地和青龙面版
-
-### 本地
+## 使用说明
 
 ### 青龙面板
 
-1. 确保你已安装并配置好青龙面板
-2. 在青龙面板的订阅管理中点击 新建订阅 ，将下方命令参数复制到新建订阅窗口的 名称 中后手动设置定时规则，指定类型为 interval
-   每 1 天 后点击确定，然后运行订阅，并禁用订阅的自动运行，如不禁用将导致配置文件被覆盖。
+1. 在青龙面板的订阅管理中点击 新建订阅 ，将下方命令参数复制到新建订阅窗口的 名称 中后手动设置定时规则，指定类型为 interval
+   每 1 天 后点击确定，然后运行订阅
 
    ```angular2html
-    ql repo https://github.com/superHao2000/yuchenCheck.git main utils|init utils|config master py|yaml
+    ql repo https://github.com/superHao2000/autoCheck.git "main" "" "utils|config" "master" "py|yaml"
    ```
 
-3. 在青龙面板的定时任务中运行名称为 YuChen_Check 的任务，查看日志检查确定成功后即可禁用然后进行下一步
-4. 运行一次脚本自动生成配置文件
-4. 在青龙面板的脚本管理中点击 superHao2000_yuchenCheck_master 文件夹，选中config.yaml 文件，填写账号、密码和浏览器UA
+2. 在青龙面板的定时任务中运行名称为 auto_Check 的任务，查看日志检查确定生成了配置文件 cconfig.yaml
 
-5. 在依赖管理添加依赖
+3. 在青龙面板的脚本管理中找到 superHao2000_autoCheck_master 文件夹，填写config.yaml配置文件
+
+4. 在依赖管理添加依赖
     ```
-   PyYAML
-   loguru
-   requests
-   beautifulsoup4
+   PyYAML~=6.0.1
+   loguru~=0.7.2
+   requests~=2.31.0
+   beautifulsoup4~=4.12.2
+   urllib3~=2.1.0
+   pydantic~=2.6.4
    ```
-6. 在青龙面板的定时任务中运行名称为 YuChen_Check的任务，查看日志检查确定成功运行即可
+5. 在青龙面板的定时任务中运行名称为 auto_Check的任务，查看日志检查确定成功运行即可
