@@ -15,10 +15,10 @@ name = "飞机场"
 
 class AirPort(object):
     def __init__(self, airport):
-        self.base_url = airport["base_url"]
-        self.email = airport["email"]
-        self.password = airport["password"]
-        self.user_agent = airport["user_agent"]
+        self.base_url = airport.base_url
+        self.email = airport.email
+        self.password = airport.password
+        self.user_agent = airport.user_agent
         self.session = requests.Session()
 
     def checkin(self):

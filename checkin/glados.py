@@ -15,8 +15,8 @@ class GlaDos(object):
     origin = "https://glados.rocks"
 
     def __init__(self, glados):
-        self.cookies = glados["cookies"]
-        self.user_agent = glados["user_agent"]
+        self.cookies = glados.cookies
+        self.user_agent = glados.user_agent
         self.session = requests.session()
 
     def checkin(self):

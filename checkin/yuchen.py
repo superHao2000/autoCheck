@@ -6,7 +6,7 @@ from utils.logger import log
 from utils.util import LoginResultHandler
 from utils.util import sleep_random
 
-config_YuChen = Conf.Account["YuChen"]
+config_YuChen = Conf.account.yuchen
 name = "雨晨ios资源"
 
 
@@ -16,9 +16,9 @@ class YuChen:
     # user_agent: str = "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/119.0"
 
     def __init__(self, yuchen):
-        self.username = yuchen["username"]
-        self.password = yuchen["password"]
-        self.user_agent = yuchen["user_agent"]
+        self.username = yuchen.username
+        self.password = yuchen.password
+        self.user_agent = yuchen.user_agent
         self.session = requests.session()
         self.cookie = None
         self.token = self.get_token()

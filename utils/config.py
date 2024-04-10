@@ -1,102 +1,100 @@
 import os.path
 import sys
+from json import JSONDecodeError
+from typing import List
 
 import yaml
 from yaml.parser import ParserError
-
-# from checkin.air import Air
-# from checkin.yuchen import YuChen
+from pydantic import BaseModel, ValidationError
 from utils.logger import log
 
-PATH = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-config_PATH = os.path.join(PATH, 'config.yaml')
+ROOT_PATH = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+"""主目录"""
+CONFIG_PATH = os.path.join(ROOT_PATH, 'config.yaml')
+"""数据文件目录"""
 
 
-class Config(object):
-    """配置类"""
-    Account: dict = {
-        "YuChen": list,
-        "AirPort": list,
-        "GlaDos": list,
-    }
-    Push: dict = {}
+class YuChen(BaseModel):
+    username: str = ""
+    '''账号'''
+    password: str = ""
+    '''密码'''
+    user_agent: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 Edg/123.0.0.0"
+    '''浏览器头'''
 
-    def __init__(self, file_path):
-        self.file_path = file_path
 
-    def read_config(self):
-        """读取配置文件"""
-        log.info('读取配置文件')
-        try:
-            with open(self.file_path, 'r', encoding='utf-8') as f:
-                data = f.read()
-                config = yaml.safe_load(data)
-                self.Account = config["Account"]
-                self.Push = config["Push"]
-        except ParserError:
-            log.info("配置文件填写错误")
-            sys.exit()
-        except KeyError:
-            log.info("未找到的配置项")
+class AirPort(BaseModel):
+    base_url: str = ""
+    '''网址'''
+    email: str = ""
+    '''邮箱'''
+    password: str = ""
+    '''密码'''
+    user_agent: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 Edg/123.0.0.0"
+    '''浏览器头'''
 
-    def write_config(self):
-        """写入配置文件"""
-        config_dict = {
-            'Account': {
-                'YuChen': [
-                    {
-                        "username": "",
-                        "password": "",
-                        "user_agent": "",
-                    },
-                    {
-                        "username": "",
-                        "password": "",
-                        "user_agent": "",
-                    },
-                ],
-                'AirPort': [
-                    {
-                        "base_url": "",
-                        "email": "",
-                        "password": "",
-                        "user_agent": "",
-                    },
-                    {
-                        "base_url": "",
-                        "email": "",
-                        "password": "",
-                        "user_agent": "",
-                    },
-                ],
-                'GlaDos': [
-                    {
-                        "cookies": "",
-                        "user_agent": "",
-                    },
-                    {
-                        "cookies": "",
-                        "user_agent": "",
-                    },
-                ]
-            },
-            'Push': '',
-        }
-        with open(self.file_path, 'w') as file:
-            file.write(yaml.dump(config_dict, allow_unicode=True, sort_keys=False))
+
+class GlaDos(BaseModel):
+    cookies: str = ""
+    '''cookies'''
+    user_agent: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 Edg/123.0.0.0"
+    '''浏览器头'''
+
+
+class Account(BaseModel):
+    yuchen: List[YuChen] = [YuChen()]
+    glados: List[GlaDos] = [GlaDos()]
+    airport: List[AirPort] = [AirPort()]
+
+
+class Push(BaseModel):
+    pass
+
+
+class Config(BaseModel):
+    account: Account = Account()
+    push: Push = Push()
+
+
+def write_data():
+    try:
+        data = Config()
+        str_data = yaml.dump(data.model_dump(), indent=4, allow_unicode=True, sort_keys=False)
+        with open(CONFIG_PATH, "w", encoding="utf-8") as file:
+            file.write(str_data)
         log.info("生成配置文件成功")
+    except:
+        print("出现意外")
+        raise
 
 
-Conf = Config(config_PATH)
-if os.path.exists(config_PATH):
-    Conf.read_config()
+def read_data():
+    try:
+        with open(CONFIG_PATH, 'r', encoding="utf-8") as file:
+            data = yaml.safe_load(file)
+            new_model = Config.model_validate(data)
+            for attr in new_model.model_fields:
+                # Config.data_obj.__setattr__(attr, new_model.__getattribute__(attr))
+                setattr(Config, attr, getattr(new_model, attr))
+            return new_model
+    except (ValidationError, JSONDecodeError):
+        log.exception(f"读取数据文件失败，请检查数据文件 {CONFIG_PATH} 格式是否正确")
+        raise
+    except Exception:
+        log.exception(
+            f"读取数据文件失败，请检查数据文件 {CONFIG_PATH} 是否存在且有权限读取和写入")
+        raise
+
+
+if os.path.exists(CONFIG_PATH):
+    Conf = read_data()
     # config_YuChen = Conf.Account["YuChen"]
     # config_Air = Conf.Account["Air"]
     # config_Push = Conf.Push
 else:
     log.info("配置文件不存在")
-    Conf.write_config()
+    write_data()
     log.info("请填写配置文件后重新启动")
     sys.exit()
 if __name__ == '__main__':
-    print(Conf.Push["onepush"])
+    pass
