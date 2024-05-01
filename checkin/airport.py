@@ -9,7 +9,7 @@ from utils.util import sleep_random
 
 urllib3.disable_warnings()
 
-config_AirPort = Conf.Account["AirPort"]
+config_AirPort = Conf.account.airport
 name = "飞机场"
 
 

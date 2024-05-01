@@ -6,7 +6,7 @@ from utils.config import Conf
 from utils.logger import log
 from utils.util import sleep_random
 
-config_GlaDos = Conf.Account['GlaDos']
+config_GlaDos = Conf.account.glados
 name = "GlaDos"
 
 
