@@ -3,6 +3,7 @@
 
 import os
 
+from utils import sendNotify
 from utils.util import sleep_random
 
 
@@ -27,3 +28,4 @@ if __name__ == '__main__':
         # 动态导入并执行每个模块的main函数
         __import__(package + module, fromlist="main").main()
         sleep_random()
+    sendNotify.main()

@@ -4,7 +4,6 @@ from json import JSONDecodeError
 from typing import List
 
 import yaml
-from yaml.parser import ParserError
 from pydantic import BaseModel, ValidationError
 from utils.logger import log
 
@@ -121,9 +120,6 @@ def read_data():
 
 if os.path.exists(CONFIG_PATH):
     Conf = read_data()
-    # config_YuChen = Conf.Account["YuChen"]
-    # config_Air = Conf.Account["Air"]
-    # config_Push = Conf.Push
 else:
     log.info("配置文件不存在")
     write_data()

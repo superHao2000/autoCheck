@@ -6,7 +6,7 @@ from utils.logger import log
 from utils.util import LoginResultHandler
 from utils.util import sleep_random
 
-config_YuChen = Conf.account.yuchen
+config_YuChen = Conf.ACCOUNT.YUCHEN
 name = "雨晨ios资源"
 
 
