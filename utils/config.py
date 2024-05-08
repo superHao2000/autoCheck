@@ -47,7 +47,40 @@ class Account(BaseModel):
 
 
 class Push(BaseModel):
-    pass
+    HITOKOTO: str = "true"
+    ''' 启用一言（随机句子）; 为空即关闭'''
+    BARK: str = ""
+    '''bark服务,自行搜索; secrets可填'''
+    BARK_PUSH: str = ""
+    '''bark自建服务器，要填完整链接，结尾的/不要'''
+    PUSH_KEY: str = ""
+    '''Server酱的PUSH_KEY; secrets可填'''
+    TG_BOT_TOKEN: str = ""
+    '''tg机器人的TG_BOT_TOKEN; secrets可填1407203283:AAG9rt-6RDaaX0HBLZQq0laNOh898iFYaRQ'''
+    TG_USER_ID: str = ""
+    '''tg机器人的TG_USER_ID; secrets可填 1434078534'''
+    TG_API_HOST: str = ""
+    '''tg 代理api'''
+    TG_PROXY_IP: str = ""
+    'tg机器人的TG_PROXY_IP; secrets可填'
+    TG_PROXY_PORT: str = ""
+    '''tg机器人的TG_PROXY_PORT; secrets可填'''
+    DD_BOT_TOKEN: str = ""
+    '''钉钉机器人的DD_BOT_TOKEN; secrets可填'''
+    DD_BOT_SECRET: str = ""
+    '''钉钉机器人的DD_BOT_SECRET; secrets可填'''
+    QQ_SKEY: str = ""
+    '''qq机器人的QQ_SKEY; secrets可填'''
+    QQ_MODE: str = ""
+    '''qq机器人的QQ_MODE; secrets可填'''
+    QYWX_AM: str = ""
+    '''企业微信'''
+    QYWX_KEY: str = ""
+    '''企业微信BOT'''
+    PUSH_PLUS_TOKEN: str = ""
+    '微信推送Plus+'
+    FS_KEY: str = ""
+    '''飞书群BOT'''
 
 
 class Config(BaseModel):
@@ -87,9 +120,6 @@ def read_data():
 
 if os.path.exists(CONFIG_PATH):
     Conf = read_data()
-    # config_YuChen = Conf.Account["YuChen"]
-    # config_Air = Conf.Account["Air"]
-    # config_Push = Conf.Push
 else:
     log.info("配置文件不存在")
     write_data()

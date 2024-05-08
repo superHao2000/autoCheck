@@ -36,8 +36,8 @@ def systesm_info():
         log.info(show_info('系统代理', getproxies()))
 
 
-def sleep_random():
-    time.sleep(random.randint(1, 10))
+def sleep_random(min=1, max=10):
+    time.sleep(random.randint(min, max))
 
 
 class ObjDictTool:
