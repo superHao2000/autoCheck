@@ -2,46 +2,34 @@ import base64
 import hashlib
 import hmac
 import json
-import os
 import re
-import sys
 import time
 import urllib.parse
 
 import requests
 
 from utils.config import Conf
-from utils.logger import log
-from utils.logger import log_messages
+from utils.logger import log, InterceptHandler
 
 send_Conf = Conf.PUSH
-message = log_messages
 # 通知服务
 HITOKOTO = send_Conf.HITOKOTO  # 启用一言（随机句子）; 为空即关闭
-BARK = '111'  # bark服务,自行搜索; secrets可填;
-BARK_PUSH = '111'  # bark自建服务器，要填完整链接，结尾的/不要
-PUSH_KEY = '111'  # Server酱的PUSH_KEY; secrets可填
-TG_BOT_TOKEN = '111'  # tg机器人的TG_BOT_TOKEN; secrets可填1407203283:AAG9rt-6RDaaX0HBLZQq0laNOh898iFYaRQ
-TG_USER_ID = '111'  # tg机器人的TG_USER_ID; secrets可填 1434078534
-TG_API_HOST = '111'  # tg 代理api
-TG_PROXY_IP = '111'  # tg机器人的TG_PROXY_IP; secrets可填
-TG_PROXY_PORT = '111'  # tg机器人的TG_PROXY_PORT; secrets可填
-DD_BOT_TOKEN = '111'  # 钉钉机器人的DD_BOT_TOKEN; secrets可填
-DD_BOT_SECRET = '111'  # 钉钉机器人的DD_BOT_SECRET; secrets可填
-QQ_SKEY = '111'  # qq机器人的QQ_SKEY; secrets可填
-QQ_MODE = '111'  # qq机器人的QQ_MODE; secrets可填
-QYWX_AM = '111'  # 企业微信
-QYWX_KEY = '111'  # 企业微信BOT
-PUSH_PLUS_TOKEN = '111'  # 微信推送Plus+
-FS_KEY = '111'  # 飞书群BOT
-
-
-# message_info = ''''''
-# def message(str_msg):
-#     global message_info
-#     log.info(str_msg)
-#     message_info = "{}\n{}".format(message_info, str_msg)
-#     sys.stdout.flush()
+BARK = send_Conf.BARK  # bark服务,自行搜索; secrets可填;
+BARK_PUSH = send_Conf.BARK_PUSH  # bark自建服务器，要填完整链接，结尾的/不要
+PUSH_KEY = send_Conf.PUSH_KEY  # Server酱的PUSH_KEY; secrets可填
+TG_BOT_TOKEN = send_Conf.TG_BOT_TOKEN  # tg机器人的TG_BOT_TOKEN; secrets可填1407203283:AAG9rt-6RDaaX0HBLZQq0laNOh898iFYaRQ
+TG_USER_ID = send_Conf.TG_USER_ID  # tg机器人的TG_USER_ID; secrets可填 1434078534
+TG_API_HOST = send_Conf.TG_API_HOST  # tg 代理api
+TG_PROXY_IP = send_Conf.TG_PROXY_IP  # tg机器人的TG_PROXY_IP; secrets可填
+TG_PROXY_PORT = send_Conf.TG_PROXY_PORT  # tg机器人的TG_PROXY_PORT; secrets可填
+DD_BOT_TOKEN = send_Conf.DD_BOT_TOKEN  # 钉钉机器人的DD_BOT_TOKEN; secrets可填
+DD_BOT_SECRET = send_Conf.DD_BOT_SECRET  # 钉钉机器人的DD_BOT_SECRET; secrets可填
+QQ_SKEY = send_Conf.QQ_SKEY  # qq机器人的QQ_SKEY; secrets可填
+QQ_MODE = send_Conf.QQ_MODE  # qq机器人的QQ_MODE; secrets可填
+QYWX_AM = send_Conf.QYWX_AM  # 企业微信
+QYWX_KEY = send_Conf.QYWX_KEY  # 企业微信BOT
+PUSH_PLUS_TOKEN = send_Conf.PUSH_PLUS_TOKEN  # 微信推送Plus+
+FS_KEY = send_Conf.FS_KEY  # 飞书群BOT
 
 
 def bark(title, content):
@@ -91,7 +79,7 @@ def serverJ(title, content):
         }
         response = requests.post(f"https://sc.ftqq.com/{PUSH_KEY}.send", data=data).json()
         log.debug(response)
-        if response['errno'] == 0:
+        if response['data']['errno'] == 0:
             log.info('推送成功！')
         else:
             log.info('推送失败！')
@@ -367,10 +355,12 @@ def send(title, content):
     :return:
     """
     # 获取一条一言
-    content += f"\n\n{one()}" if HITOKOTO else ""
+    if HITOKOTO:
+        content += f"\n\n{one()}"
+    else:
+        content += ""
     if BARK:
         bark(title=title, content=content)
-        print(content)
     if BARK_PUSH:
         bark_push(title=title, content=content)
     if PUSH_KEY:
@@ -393,7 +383,7 @@ def send(title, content):
 
 
 def main():
-    send('title', message)
+    send('title', "content")
 
 
 if __name__ == '__main__':

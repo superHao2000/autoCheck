@@ -1,10 +1,11 @@
 # new Env("auto_Check")
-# cron 30 8 * * * main.py
+# cron 35 8 * * * main.py
 
 import os
 
 from utils import sendNotify
 from utils.util import sleep_random
+from utils.logger import InterceptHandler
 
 
 # # 找出模块里所有的类名
@@ -28,4 +29,4 @@ if __name__ == '__main__':
         # 动态导入并执行每个模块的main函数
         __import__(package + module, fromlist="main").main()
         sleep_random()
-    sendNotify.main()
+    sendNotify.send("自用签到", InterceptHandler.message)
