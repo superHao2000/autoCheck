@@ -66,7 +66,6 @@ class GlaDos(object):
 
 
 def main():
-    log.info(f"{name}签到开始执行")
     log.info(f"{name}检测到{len(config_GlaDos)}个账号")
     for i in range(len(config_GlaDos)):
         log.info(f"账号{i + 1}签到开始执行")
