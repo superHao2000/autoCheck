@@ -6,7 +6,7 @@ from utils.config import Conf
 from utils.logger import log
 from utils.util import sleep_random
 
-config_GlaDos = Conf.account.glados
+config_GlaDos = Conf.ACCOUNT.GLADOS
 name = "GlaDos"
 
 
@@ -52,6 +52,7 @@ class GlaDos(object):
             "user-agent": self.user_agent,
         }
         state = self.session.get(url=url, headers=headers)
+        log.debug(state.json())
         days = state.json()["data"]["days"]
         left_days = int(float(state.json()["data"]["leftDays"]))
         log.info(f"当前point{days}点,剩余天数{left_days}天")
@@ -65,9 +66,9 @@ class GlaDos(object):
 
 
 def main():
-    log.info(f"{name}签到开始执行")
     log.info(f"{name}检测到{len(config_GlaDos)}个账号")
     for i in range(len(config_GlaDos)):
+        log.info(f"账号{i + 1}签到开始执行")
         glados = GlaDos(config_GlaDos[i])
         if glados.complete():
             try:

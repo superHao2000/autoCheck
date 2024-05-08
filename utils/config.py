@@ -4,7 +4,6 @@ from json import JSONDecodeError
 from typing import List
 
 import yaml
-from yaml.parser import ParserError
 from pydantic import BaseModel, ValidationError
 from utils.logger import log
 
@@ -42,9 +41,9 @@ class GlaDos(BaseModel):
 
 
 class Account(BaseModel):
-    yuchen: List[YuChen] = [YuChen()]
-    glados: List[GlaDos] = [GlaDos()]
-    airport: List[AirPort] = [AirPort()]
+    YUCHEN: List[YuChen] = [YuChen()]
+    GLADOS: List[GlaDos] = [GlaDos()]
+    AIRPORT: List[AirPort] = [AirPort()]
 
 
 class Push(BaseModel):
@@ -52,8 +51,8 @@ class Push(BaseModel):
 
 
 class Config(BaseModel):
-    account: Account = Account()
-    push: Push = Push()
+    ACCOUNT: Account = Account()
+    PUSH: Push = Push()
 
 
 def write_data():
@@ -97,4 +96,4 @@ else:
     log.info("请填写配置文件后重新启动")
     sys.exit()
 if __name__ == '__main__':
-    pass
+    print(Conf)

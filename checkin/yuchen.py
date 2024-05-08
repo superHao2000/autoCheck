@@ -6,7 +6,7 @@ from utils.logger import log
 from utils.util import LoginResultHandler
 from utils.util import sleep_random
 
-config_YuChen = Conf.account.yuchen
+config_YuChen = Conf.ACCOUNT.YUCHEN
 name = "雨晨ios资源"
 
 
@@ -131,9 +131,9 @@ class YuChen:
 
 
 def main():
-    log.info(f"{name}签到开始执行")
     log.info(f"{name}检测到{len(config_YuChen)}个账号")
     for i in range(len(config_YuChen)):
+        log.info(f"账号{i + 1}签到开始执行")
         yuchen = YuChen(config_YuChen[i])
         if yuchen.yuchen_sign():
             try:

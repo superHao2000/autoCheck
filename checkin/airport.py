@@ -9,7 +9,7 @@ from utils.util import sleep_random
 
 urllib3.disable_warnings()
 
-config_AirPort = Conf.account.airport
+config_AirPort = Conf.ACCOUNT.AIRPORT
 name = "飞机场"
 
 
@@ -60,9 +60,9 @@ class AirPort(object):
 
 
 def main():
-    log.info(f"{name}签到开始执行")
-    log.info(f"检测到{len(config_AirPort)}个账号")
+    log.info(f"{name}检测到{len(config_AirPort)}个账号")
     for i in range(len(config_AirPort)):
+        log.info(f"账号{i + 1}签到开始执行")
         account = AirPort(config_AirPort[i])
         if account.complete():
             try:
