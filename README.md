@@ -5,11 +5,12 @@
 1. [雨晨ios资源网站](https://yuchen.tonghuaios.com/)
 2. [Glados](https://glados.rocks/)
 3. 飞机场
+4. [javbus](https://www.javbus.com)
 
 ## 功能
 
 - [x] 多账号
-- [ ] 推送
+- [x] 推送
 - [ ] docker
 
 ## 使用说明
@@ -35,5 +36,6 @@
    beautifulsoup4~=4.12.2
    urllib3~=2.1.0
    pydantic~=2.6.4
+   lxml~=5.2.2
    ```
 5. 重新运行 auto_Check 任务，查看日志检查确定成功运行，每天8.30自动运行

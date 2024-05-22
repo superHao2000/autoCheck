@@ -14,6 +14,7 @@ CONFIG_PATH = os.path.join(ROOT_PATH, 'config.yaml')
 
 
 class YuChen(BaseModel):
+    """雨晨ios资源网"""
     username: str = ""
     '''账号'''
     password: str = ""
@@ -23,6 +24,7 @@ class YuChen(BaseModel):
 
 
 class AirPort(BaseModel):
+    """飞机场"""
     base_url: str = ""
     '''网址'''
     email: str = ""
@@ -34,6 +36,17 @@ class AirPort(BaseModel):
 
 
 class GlaDos(BaseModel):
+    """GlaDos"""
+    cookies: str = ""
+    '''cookies'''
+    user_agent: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 Edg/123.0.0.0"
+    '''浏览器头'''
+
+
+class JavBus(BaseModel):
+    """老司机论坛"""
+    url: str = "https://www.javbus.com"
+    '''网址'''
     cookies: str = ""
     '''cookies'''
     user_agent: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 Edg/123.0.0.0"
@@ -44,6 +57,7 @@ class Account(BaseModel):
     YUCHEN: List[YuChen] = [YuChen()]
     GLADOS: List[GlaDos] = [GlaDos()]
     AIRPORT: List[AirPort] = [AirPort()]
+    JAVBUS: List[JavBus] = [JavBus()]
 
 
 class Push(BaseModel):
@@ -126,4 +140,4 @@ else:
     log.info("请填写配置文件后重新启动")
     sys.exit()
 if __name__ == '__main__':
-    print(Conf)
+    print(Conf.ACCOUNT.JAVBUS)

@@ -149,7 +149,7 @@ def dingding_bot(title, content):
         log.info('推送失败！')
 
 
-# qq机器人
+# qsmg酱
 def coolpush_bot(title, content):
     if not QQ_SKEY or not QQ_MODE:
         log.info("qq服务的QQ_SKEY或者QQ_MODE未设置!!\n取消推送")
