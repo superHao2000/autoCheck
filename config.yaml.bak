@@ -1,0 +1,32 @@
+ACCOUNT:
+    YUCHEN:
+    -   username:
+        password:
+    GLADOS:
+    -   cookies:
+    AIRPORT:
+    -   base_url:
+        email:
+        password:
+    JAVBUS:
+    -   url:
+        cookies:
+PUSH:
+    HITOKOTO: ''
+    BARK: ''
+    BARK_PUSH: ''
+    PUSH_KEY: ''
+    TG_BOT_TOKEN: ''
+    TG_USER_ID: ''
+    TG_API_HOST: ''
+    TG_PROXY_IP: ''
+    TG_PROXY_PORT: ''
+    DD_BOT_TOKEN: ''
+    DD_BOT_SECRET: ''
+    QQ_SKEY: ''
+    QQ_MODE: ''
+    QYWX_AM: ''
+    QYWX_KEY: ''
+    PUSH_PLUS_TOKEN: ''
+    FS_KEY: ''
+USER_AGENT: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,like Gecko) Chrome/123.0.0.0 Safari/537.36 Edg/123.0.0.0
