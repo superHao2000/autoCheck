@@ -3,23 +3,26 @@ import json
 import requests
 import urllib3
 
-from utils.config import Conf
+from utils.config import ACCOUNT, USER_AGENT
 from utils.logger import log
 from utils.util import sleep_random
 
 urllib3.disable_warnings()
 
-config_AirPort = Conf.ACCOUNT.AIRPORT
+config_AirPort = ACCOUNT["AirPort"]
 name = "飞机场"
 
 
 class AirPort(object):
-    def __init__(self, airport):
-        self.base_url = airport.base_url
-        self.email = airport.email
-        self.password = airport.password
-        self.user_agent = airport.user_agent
-        self.session = requests.Session()
+    def __init__(self, **kwargs):
+        self.base_url: str = ""
+        self.email: str = ""
+        self.password: str = ""
+        self.user_agent: str = ""
+        self.__dict__.update(kwargs)
+        if 'user_agent' not in kwargs:
+            self.user_agent: str = USER_AGENT
+        self.session = requests.session()
 
     def checkin(self):
         """
@@ -63,12 +66,13 @@ def main():
     log.info(f"{name}检测到{len(config_AirPort)}个账号")
     for i in range(len(config_AirPort)):
         log.info(f"账号{i + 1}签到开始执行")
-        account = AirPort(config_AirPort[i])
+        account = AirPort(**config_AirPort[i])
         if account.complete():
             try:
                 account.checkin()
             except Exception as e:
                 log.info(f"账号{i + 1}签到失败")
+                log.debug(e)
                 continue
             sleep_random()
         continue

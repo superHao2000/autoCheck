@@ -2,11 +2,11 @@ import json
 
 import requests
 
-from utils.config import Conf
+from utils.config import ACCOUNT, USER_AGENT
 from utils.logger import log
 from utils.util import sleep_random
 
-config_GlaDos = Conf.ACCOUNT.GLADOS
+config_GlaDos = ACCOUNT["GlaDos"]
 name = "GlaDos"
 
 
@@ -14,9 +14,12 @@ class GlaDos(object):
     referer = "https://glados.rocks/console/checkin"
     origin = "https://glados.rocks"
 
-    def __init__(self, glados):
-        self.cookies = glados.cookies
-        self.user_agent = glados.user_agent
+    def __init__(self, **kwargs):
+        self.cookies: str = ""
+        self.user_agent: str = ""
+        self.__dict__.update(kwargs)
+        if 'user_agent' not in kwargs:
+            self.user_agent: str = USER_AGENT
         self.session = requests.session()
 
     def checkin(self):
@@ -69,7 +72,7 @@ def main():
     log.info(f"{name}检测到{len(config_GlaDos)}个账号")
     for i in range(len(config_GlaDos)):
         log.info(f"账号{i + 1}签到开始执行")
-        glados = GlaDos(config_GlaDos[i])
+        glados = GlaDos(**config_GlaDos[i])
         if glados.complete():
             try:
                 glados.checkin()
@@ -77,7 +80,7 @@ def main():
                 sleep_random()
             except Exception as e:
                 log.info(f"账号{i + 1}签到失败")
-
+                log.debug(e)
         continue
 
 

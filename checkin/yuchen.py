@@ -10,16 +10,17 @@ config_YuChen: dict = ACCOUNT["YuChen"]
 name = "雨晨ios资源"
 
 
-class YuChen:
+class YuChen(object):
     """处理账号信息"""
 
     def __init__(self, **kwargs):
-        self.username = None
-        self.password = None
+        self.url: str = "yc.yuchengyouxi.com"
+        self.username: str = ""
+        self.password: str = ""
+        self.user_agent: str = ""
         self.__dict__.update(kwargs)
-        self.url = "yc.yuchengyouxi.com"
         if 'user_agent' not in kwargs:
-            self.user_agent = USER_AGENT
+            self.user_agent: str = USER_AGENT
         self.session = requests.session()
         log.debug(self.__str__())
 

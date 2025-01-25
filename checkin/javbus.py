@@ -1,18 +1,23 @@
 import requests
 from lxml import etree
-from utils.config import Conf
+
+from utils.config import ACCOUNT, USER_AGENT
 from utils.logger import log
 from utils.util import sleep_random
 
-config_JavBus = Conf.ACCOUNT.JAVBUS
+config_JavBus = ACCOUNT["JavBus"]
 name = "JavBus"
 
 
 class JavBus(object):
-    def __init__(self, javbus):
+    def __init__(self, **kwargs):
+        self.url: str = ""
+        self.cookies: str = ""
+        self.user_agent: str = ""
+        self.__dict__.update(kwargs)
+        if 'user_agent' not in kwargs:
+            self.user_agent: str = USER_AGENT
         self.session = requests.Session()
-        self.url = javbus.url
-        self.cookies = javbus.cookies
 
     def checkin(self):
         url = self.url + "/forum/home.php?mod=spacecp&ac=credit&op=log&suboperation=creditrulelog"
@@ -21,7 +26,7 @@ class JavBus(object):
             'method': 'GET',
             'path': '/forum/home.php?mod=spacecp&ac=credit',
             'scheme': 'https',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0',
+            'User-Agent': self.user_agent,
             # 'Connection' : 'keep-alive',
             # 'Host' : 'www.right.com.cn',
             'Upgrade-Insecure-Requests': '1',
@@ -50,12 +55,13 @@ def main():
     log.info(f"{name}检测到{len(config_JavBus)}个账号")
     for i in range(len(config_JavBus)):
         log.info(f"账号{i + 1}签到开始执行")
-        account = JavBus(config_JavBus[i])
+        account = JavBus(**config_JavBus[i])
         if account.complete():
             try:
                 account.checkin()
             except Exception as e:
                 log.info(f"账号{i + 1}签到失败,更换网络环境或者使用防屏蔽网址")
+                log.debug(e)
                 continue
             sleep_random()
         continue
