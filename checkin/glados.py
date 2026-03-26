@@ -1,90 +1,97 @@
-import json
-
 import requests
 
-from utils.config import ACCOUNT, USER_AGENT
-from utils.logger import log
-from utils.util import sleep_random
-
-config_GlaDos = ACCOUNT["GlaDos"]
-name = "GlaDos"
+from ..utils import log, config
 
 
-class GlaDos(object):
-    referer = "https://glados.rocks/console/checkin"
-    origin = "https://glados.rocks"
-
-    def __init__(self, **kwargs):
-        self.cookies: str = ""
-        self.user_agent: str = ""
-        self.__dict__.update(kwargs)
-        if 'user_agent' not in kwargs:
-            self.user_agent: str = USER_AGENT
-        self.session = requests.session()
-
-    def checkin(self):
-        url = "https://glados.rocks/api/user/checkin"
-        headers = {"cookie": self.cookies,
-                   "referer": self.referer,
-                   "origin": self.origin,
-                   "user-agent": self.user_agent,
-                   "content-type": 'application/json;charset=UTF-8'}
-        payload = {
-            'token': 'glados.one'
-        }
-        checkin = self.session.post(url, headers=headers, data=json.dumps(payload))
-        if checkin.status_code == 200:
-            result = checkin.json()
-            # 获取签到结果
-            message = result.get('message')
-            points = result.get("points")
-            if message == 'Checkin Repeats! Please Try Tomorrow':
-                message = "今日已签到"
-            elif "Checkin! Got" in message:
-                message = f"签到成功，points+{points}"
+def checkin(cookies: str) -> dict:
+    """
+    GlaDos 签到
+    
+    Args:
+        cookies: 登录 Cookie
+        
+    Returns:
+        签到结果字典
+    """
+    url = 'https://glados.one/api/user/checkin'
+    headers = {
+        'Content-Type': 'application/json',
+        'User-Agent': config.USER_AGENT or 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Cookie': cookies,
+        'Referer': 'https://glados.one/'
+    }
+    payload = {
+        'token': 'glados_network'
+    }
+    
+    try:
+        response = requests.post(url, json=payload, headers=headers, timeout=30)
+        response.encoding = 'utf-8'
+        
+        try:
+            json_data = response.json()
+            code = json_data.get('code', -1)
+            message = json_data.get('message', '')
+            
+            if code == 0 or 'Checkin' in message or '签到' in message:
+                # 提取剩余天数
+                msg = message
+                if 'Left days' in message or '剩余' in message:
+                    msg = message
+                return {'success': True, 'message': msg or '签到成功'}
+            elif 'already' in message.lower() or '已签到' in message:
+                return {'success': True, 'message': message}
             else:
-                message = "签到失败，请检查..."
-            log.info(message)
-
-    def state(self):
-        url = "https://glados.rocks/api/user/status"
-        headers = {
-            'cookie': self.cookies,
-            "referer": self.referer,
-            "origin": self.origin,
-            "user-agent": self.user_agent,
-        }
-        state = self.session.get(url=url, headers=headers)
-        log.debug(state.json())
-        days = state.json()["data"]["days"]
-        left_days = int(float(state.json()["data"]["leftDays"]))
-        log.info(f"当前point{days}点,剩余天数{left_days}天")
-
-    def complete(self):
-        """判断账号信息是否完整"""
-        if self.cookies == "" or self.user_agent == "":
-            log.info("账号信息不完整，跳过此账号")
-            return False
-        return True
+                return {'success': False, 'message': message}
+        except Exception:
+            return {'success': False, 'message': f'解析失败: {response.text[:50]}'}
+            
+    except Exception as e:
+        return {'success': False, 'message': f'请求失败: {str(e)}'}
 
 
-def main():
-    log.info(f"{name}检测到{len(config_GlaDos)}个账号")
-    for i in range(len(config_GlaDos)):
-        log.info(f"账号{i + 1}签到开始执行")
-        glados = GlaDos(**config_GlaDos[i])
-        if glados.complete():
-            try:
-                glados.checkin()
-                glados.state()
-                sleep_random()
-            except Exception as e:
-                log.info(f"账号{i + 1}签到失败")
-                log.debug(e)
-        continue
-
-
-if __name__ == '__main__':
-    main()
-    # glados = GlaDos(config_GlaDos[0])
-    # glados.checkin()
+def run(accounts: list) -> dict:
+    """
+    运行签到任务
+    
+    Args:
+        accounts: 账号列表，每个账号应为包含 cookies 的字典
+        
+    Returns:
+        结果汇总
+    """
+    results = {
+        'total': len(accounts),
+        'success': 0,
+        'failed': 0,
+        'details': []
+    }
+    
+    for i, account in enumerate(accounts):
+        cookies = account.get('cookies', account.get('cookie', ''))
+        
+        if not cookies:
+            result = {
+                'username': f'账号{i+1}',
+                'success': False,
+                'message': '缺少 cookies 配置'
+            }
+            results['failed'] += 1
+            results['details'].append(result)
+            log.warning(f"GlaDos 账号 {i+1} 缺少 cookies，跳过")
+            continue
+        
+        log.info(f"GlaDos 开始签到账号 {i+1}")
+        result = checkin(cookies)
+        result['username'] = f'账号{i+1}'
+        
+        if result.get('success'):
+            results['success'] += 1
+            log.info(f"GlaDos 签到成功: 账号{i+1}")
+        else:
+            results['failed'] += 1
+            log.warning(f"GlaDos 签到失败: 账号{i+1} - {result.get('message', '未知错误')}")
+        
+        results['details'].append(result)
+    
+    return results
