@@ -1,0 +1,6 @@
+# JavBus 账号配置
+# 填写示例:
+# - url: "https://www.javbus.com"
+#   cookies: "your_cookie_value"
+
+accounts: []

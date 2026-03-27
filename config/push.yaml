@@ -1,0 +1,40 @@
+# 推送配置
+# 支持多种推送方式，可同时配置
+
+# Hitokoto 每日一言
+HITOKOTO: ''
+
+# Bark (iOS 推送)
+BARK: ''
+BARK_PUSH: ''
+
+# Push+ (PUSH Plus)
+PUSH_KEY: ''
+
+# Telegram Bot
+TG_BOT_TOKEN: ''
+TG_USER_ID: ''
+TG_API_HOST: ''
+TG_PROXY_IP: ''
+TG_PROXY_PORT: ''
+
+# 钉钉机器人
+DD_BOT_TOKEN: ''
+DD_BOT_SECRET: ''
+
+# QQ (Cool Push)
+QQ_SKEY: ''
+QQ_MODE: ''
+
+# 企业微信应用
+QYWX_AM: ''
+QYWX_KEY: ''
+
+# Push+ 推送加
+PUSH_PLUS_TOKEN: ''
+
+# FeiShu 飞书
+FS_KEY: ''
+
+# 全局 User-Agent (可选，服务配置优先)
+USER_AGENT: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,like Gecko) Chrome/123.0.0.0 Safari/537.36 Edg/123.0.0.0'

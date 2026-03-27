@@ -1,0 +1,7 @@
+# 飞机场账号配置
+# 填写示例:
+# - base_url: "https://your-airport.com"
+#   email: "your_email@example.com"
+#   password: "your_password"
+
+accounts: []
