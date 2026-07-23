@@ -1,18 +1,18 @@
+"""GlaDos 签到服务：使用登录 Cookie 调用固定签到接口。"""
+
 import requests
 
-from ..utils import log, config
+from utils import log, config
+
+
+# 自动发现服务时使用的元数据；文件名同时决定默认本地配置路径。
+SERVICE_NAME = "GlaDos"
+CONFIG_FILENAME = "glados.json"
+ENV_KEY = "GLADOS_ACCOUNTS"
 
 
 def checkin(cookies: str) -> dict:
-    """
-    GlaDos 签到
-    
-    Args:
-        cookies: 登录 Cookie
-        
-    Returns:
-        签到结果字典
-    """
+    """携带 Cookie 请求 GlaDos 签到接口，并识别“已签到”状态。"""
     url = 'https://glados.one/api/user/checkin'
     headers = {
         'Content-Type': 'application/json',
@@ -33,8 +33,8 @@ def checkin(cookies: str) -> dict:
             code = json_data.get('code', -1)
             message = json_data.get('message', '')
             
+            # 不同接口版本可能仅通过 code 或消息文本标识成功。
             if code == 0 or 'Checkin' in message or '签到' in message:
-                # 提取剩余天数
                 msg = message
                 if 'Left days' in message or '剩余' in message:
                     msg = message
@@ -51,15 +51,7 @@ def checkin(cookies: str) -> dict:
 
 
 def run(accounts: list) -> dict:
-    """
-    运行签到任务
-    
-    Args:
-        accounts: 账号列表，每个账号应为包含 cookies 的字典
-        
-    Returns:
-        结果汇总
-    """
+    """逐账号执行 GlaDos 签到；空 Cookie 仅标记当前账号失败。"""
     results = {
         'total': len(accounts),
         'success': 0,

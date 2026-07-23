@@ -1,247 +1,173 @@
 # AutoCheck
 
-多服务签到自动化工具，支持 YuChen、GlaDos、AirPort、JavBus 等服务的自动签到。
+轻量的多服务签到工具。目前内置 YuChen、GlaDos、AirPort 与 JavBus；每个服务独立运行，单个账号或服务失败不会阻断其余任务。
 
-## 功能特性
+## 支持的网站
 
-- ✅ **配置与代码解耦** - 配置文件可使用任意字段名，代码自动映射
-- ✅ **多账号支持** - 每个服务支持多个账号，一个失败不影响其他
-- ✅ **双环境运行** - 支持在 Qinglong 面板或 GitHub Actions 中运行
-- ✅ **错误隔离** - 单个账号失败不会影响其他账号和任务
-- ✅ **详细日志** - 清晰的日志输出和失败详情
-- ✅ **多种推送** - 支持 Gotify、Telegram、Webhook、邮件通知
+| 网站/服务 | 网站用途 | 本项目执行的操作 | 认证方式 |
+| --- | --- | --- | --- |
+| YuChen | 提供账号登录的 iOS 资源服务站点。 | 向配置的签到接口提交账号密码。 | 账号、密码与站点签到 URL |
+| GlaDos | 提供网络服务与用户账户管理的平台。 | 调用官方用户签到接口。 | 登录 Cookie |
+| AirPort | 泛指机场订阅服务面板；具体站点由用户自行填写。 | 登录面板后请求用户签到接口。 | 站点地址、邮箱、密码 |
+| JavBus | 影片资料检索网站。 | 向站点签到地址发送已登录会话。 | 站点地址与登录 Cookie |
 
-## 环境要求
+> 不同 AirPort 站点的接口实现可能不同；本项目当前适配 `/auth/login` 和 `/user/checkin` 路径。请仅对你有权使用的账户和站点执行签到。
 
-- Python 3.7+
-- 依赖: `requests`, `pyyaml`
+## 快速开始
 
-## 安装
+要求：Python 3.9+。
 
-```bash
-pip install requests pyyaml
+```powershell
+cd E:\Code\Github\autoCheck
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe main.py
 ```
 
-## 配置说明
+程序会自动发现 `checkin/` 下的服务模块：已配置账号的服务会执行，未配置的服务会跳过。
 
-### 配置文件结构
+## 配置
 
-在 `config/` 目录下创建各服务的配置文件：
+运行期配置统一使用 JSON。真实配置已被 Git 忽略，仓库只保留可安全提交的 `*.example.json` 模板。
 
-```
+```text
 config/
-├── yuchen.yaml      # 御厨签到配置
-├── glados.yaml      # GlaDos 签到配置
-├── airport.yaml     # AirPort 签到配置
-├── javbus.yaml      # JavBus 签到配置
-└── config.yaml      # 全局配置 (可选)
+├── push.example.json
+└── services/
+    ├── yuchen.example.json
+    ├── glados.example.json
+    ├── airport.example.json
+    └── javbus.example.json
 ```
 
-### 各服务配置示例
+先复制需要的模板，再填写本地账号。例如 YuChen：
 
-#### YuChen (御厨)
-
-```yaml
-accounts:
-  - url: "https://your-yuchen-site.com/api/checkin"
-    username: "your_username"
-    password: "your_password"
-  - url: "https://another-site.com/api/checkin"
-    username: "user2"
-    password: "pass2"
+```powershell
+Copy-Item config/services/yuchen.example.json config/services/yuchen.json
 ```
-
-#### GlaDos
-
-```yaml
-accounts:
-  - cookies: "glados.one 的登录 Cookie"
-```
-
-#### AirPort
-
-```yaml
-accounts:
-  - base_url: "https://your-airport-site.com"
-    email: "your_email@example.com"
-    password: "your_password"
-```
-
-#### JavBus
-
-```yaml
-accounts:
-  - url: "https://javbus.com"
-    cookies: "登录 Cookie"
-```
-
-### 全局配置 (config.yaml)
-
-```yaml
-# 推送配置
-push:
-  type: "telegram"  # gotify/telegram/webhook/mail
-  api_url: "https://api.telegram.org/bot<token>/sendMessage"
-  chat_id: "your_chat_id"
-
-# 自定义 User-Agent
-user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-```
-
-### 字段名灵活性
-
-配置文件支持使用多种字段名，代码会自动映射：
-
-| 标准字段 | 可用别名 |
-|---------|---------|
-| url | base_url, domain, site_url |
-| username | user, account, email |
-| password | pass, pwd |
-| cookies | cookie |
-| user_agent | user-agent, ua |
-
-例如，以下配置都是等价的：
-
-```yaml
-# 方式1: 使用标准字段
-accounts:
-  - url: "https://example.com"
-    username: "user"
-    password: "pass"
-
-# 方式2: 使用别名
-accounts:
-  - base_url: "https://example.com"
-    account: "user"
-    pass: "pass"
-
-# 方式3: 混用
-accounts:
-  - site_url: "https://example.com"
-    user: "user"
-    pwd: "pass"
-```
-
-## 使用方法
-
-### 本地运行
-
-```bash
-python3 main.py
-```
-
-### Qinglong 面板运行
-
-1. 将项目文件上传到 Qinglong
-2. 在 Qinglong 中添加环境变量或配置文件
-3. 创建定时任务运行 `python3 main.py`
-
-### GitHub Actions 运行
-
-1. Fork 本项目
-2. 在仓库 Settings → Secrets 中添加以下 secrets：
-
-| Secret 名称 | 说明 | 格式 |
-|------------|------|------|
-| YUCHEN_ACCOUNTS | 御厨账号 | JSON 数组 |
-| GLADOS_ACCOUNTS | GlaDos 账号 | JSON 数组 |
-| AIRPORT_ACCOUNTS | AirPort 账号 | JSON 数组 |
-| JAVBUS_ACCOUNTS | JavBus 账号 | JSON 数组 |
-| PUSH_CONFIG | 推送配置 | JSON 对象 |
-| USER_AGENT | User-Agent | 字符串 |
-
-#### GitHub Secrets JSON 格式示例
 
 ```json
-// YUCHEN_ACCOUNTS
-[
-  {
-    "url": "https://your-site.com/api/checkin",
-    "username": "your_username",
-    "password": "your_password"
-  }
-]
-
-// GLADOS_ACCOUNTS
-[
-  {
-    "cookies": "glados登录cookie"
-  }
-]
-
-// PUSH_CONFIG
 {
-  "type": "telegram",
-  "api_url": "https://api.telegram.org/bot<TOKEN>/sendMessage",
-  "chat_id": "<CHAT_ID>"
+  "accounts": [
+    {
+      "url": "https://your-yuchen-site.example/api/checkin",
+      "username": "your_username",
+      "password": "your_password"
+    }
+  ]
 }
 ```
 
-3. 启用 GitHub Actions 工作流 (默认每天 UTC 0:00 执行)
-4. 可手动触发: 进入 Actions → Auto Checkin → Run workflow
+其他服务的账号字段如下：
 
-## 输出示例
+| 服务 | 本地文件 | 必填字段 |
+| --- | --- | --- |
+| YuChen | `yuchen.json` | `url`、`username`、`password` |
+| GlaDos | `glados.json` | `cookies` |
+| AirPort | `airport.json` | `base_url`、`email`、`password` |
+| JavBus | `javbus.json` | `url`、`cookies` |
 
-```
-2024-01-01 00:00:00 - autocheck - INFO - ========== AutoCheck 开始 ==========
-2024-01-01 00:00:00 - autocheck - INFO - ========== YuChen 开始签到 (共 2 个账号) ==========
-2024-01-01 00:00:01 - autocheck - INFO - YuChen 开始签到: user1
-2024-01-01 00:00:02 - autocheck - INFO - YuChen 签到成功: user1
-2024-01-01 00:00:02 - autocheck - INFO - YuChen 开始签到: user2
-2024-01-01 00:00:03 - autocheck - WARNING - YuChen 签到失败: user2 - 密码错误
-2024-01-01 00:00:03 - autocheck - INFO - ========== YuChen 签到完成: 成功 1/2 ==========
-...
-2024-01-01 00:00:10 - autocheck - INFO - ========== 签到汇总 ==========
-2024-01-01 00:00:10 - autocheck - INFO -   YuChen: 成功 1/2
-2024-01-01 00:00:10 - autocheck - INFO -   GlaDos: 成功 2/2
-2024-01-01 00:00:10 - autocheck - INFO -   AirPort: 成功 1/1
-2024-01-01 00:00:10 - autocheck - INFO -   JavBus: 成功 0/1
-2024-01-01 00:00:10 - autocheck - INFO - 总计: 成功 4, 失败 2
-2024-01-01 00:00:10 - autocheck - INFO - ========== 全部完成 ==========
-```
+每个文件均支持多账号：将多个对象加入 `accounts` 数组即可。
 
-## 目录结构
+### 配置来源优先级
 
-```
-autoCheck/
-├── main.py              # 主程序入口
-├── README.md            # 说明文档
-├── TASKS.md             # 任务计划
-├── requirements.txt     # Python 依赖
-├── config/              # 配置文件目录
-│   ├── yuchen.yaml
-│   ├── glados.yaml
-│   ├── airport.yaml
-│   └── javbus.yaml
-├── checkin/             # 签到模块
-│   ├── __init__.py
-│   ├── yuchen.py
-│   ├── glados.py
-│   ├── airport.py
-│   └── javbus.py
-└── utils/               # 工具模块
-    ├── __init__.py
-    ├── config.py
-    ├── logger.py
-    ├── gotify.py
-    ├── telegram.py
-    ├── webhook.py
-    └── mail.py
+每个服务独立按以下顺序查找账号：
+
+1. 单服务环境变量，例如 `YUCHEN_ACCOUNTS`；
+2. 聚合环境变量 `AUTOCHECK_ACCOUNTS`；
+3. 本地 `config/services/<服务>.json`；
+4. 都没有时跳过该服务。
+
+单服务环境变量的值是 JSON 数组：
+
+```json
+[
+  {"url": "https://your-site.example/checkin", "username": "user", "password": "secret"}
+]
 ```
 
-## 常见问题
+聚合变量适合 GitHub Actions 新增服务，无须修改工作流：
 
-### Q: 如何获取 GlaDOS/JavBus 的 Cookie？
+```json
+{
+  "yuchen": [
+    {"url": "https://your-site.example/checkin", "username": "user", "password": "secret"}
+  ],
+  "example": [
+    {"token": "secret"}
+  ]
+}
+```
 
-A: 在浏览器中登录后，按 F12 打开开发者工具 → Network → 找到任意请求 → 复制 Request Headers 中的 Cookie。
+### 推送配置（可选）
 
-### Q: GitHub Actions 运行失败怎么办？
+复制 `config/push.example.json` 为 `config/push.json` 后可配置通知。支持 Bark、Telegram、钉钉、PushPlus、企业微信与飞书。未配置任何渠道时不会发送通知。
 
-A: 检查 Secrets 配置是否正确，特别是 JSON 格式是否有效。可以手动触发 workflow 查看详细日志。
+```powershell
+Copy-Item config/push.example.json config/push.json
+```
 
-### Q: 一个账号失败了会怎样？
+也可在调度器中使用 `PUSH_CONFIG` 环境变量传入同样的 JSON 对象。
 
-A: 单个账号失败不会影响其他账号和其他服务。每个账号的签到结果是独立的。
+## 运行与测试
+
+运行全部已配置服务：
+
+```powershell
+.\.venv\Scripts\python.exe main.py
+```
+
+每个服务都有独立的离线 Mock 测试，不会访问网站：
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest tests.test_yuchen -v
+.\.venv\Scripts\python.exe -m unittest tests.test_glados -v
+.\.venv\Scripts\python.exe -m unittest tests.test_airport -v
+.\.venv\Scripts\python.exe -m unittest tests.test_javbus -v
+```
+
+填写本地 JSON 后，显式开启某一个服务的真实测试：
+
+```powershell
+$env:RUN_LIVE_CHECKIN_TESTS = 'true'
+.\.venv\Scripts\python.exe -m unittest tests.test_yuchen -v
+```
+
+真实测试只运行指定服务，不会触发汇总推送。
+
+## GitHub Actions 与青龙
+
+GitHub Actions 工作流每天 UTC 00:00 执行，也支持手动触发。请在仓库的 **Settings → Secrets and variables → Actions** 中配置账号，不要提交真实 JSON 文件。
+
+| Secret | 用途 |
+| --- | --- |
+| `YUCHEN_ACCOUNTS` | YuChen 账号数组 |
+| `GLADOS_ACCOUNTS` | GlaDos 账号数组 |
+| `AIRPORT_ACCOUNTS` | AirPort 账号数组 |
+| `JAVBUS_ACCOUNTS` | JavBus 账号数组 |
+| `AUTOCHECK_ACCOUNTS` | 任意服务的聚合账号对象 |
+| `PUSH_CONFIG` | 推送配置对象 |
+| `USER_AGENT` | 全局 User-Agent |
+
+青龙同样可使用这些环境变量；未设置变量时程序会回退到本地 JSON 配置。
+
+## 新增服务
+
+无需修改 `main.py`：新增一个 `checkin/example.py` 和一个 `config/services/example.json` 即可。模块需要提供 `run(accounts)`，返回包含 `total`、`success`、`failed` 与 `details` 的字典。
+
+可选元数据：
+
+```python
+SERVICE_NAME = "Example"
+CONFIG_FILENAME = "example.json"
+ENV_KEY = "EXAMPLE_ACCOUNTS"
+```
+
+## 安全说明
+
+- 不要提交 `config/services/*.json` 或 `config/push.json`；它们已在 `.gitignore` 中忽略。
+- 仅提交 `*.example.json` 模板。
+- 日志会显示 YuChen 用户名和 AirPort 邮箱，但不会输出密码或 Cookie。
+- 不要将密码嵌入 URL，以免请求异常信息包含凭据。
 
 ## License
 

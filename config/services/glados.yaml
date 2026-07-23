@@ -1,5 +1,0 @@
-# GlaDos 账号配置
-# 填写示例:
-# - cookies: "koa_session=your_cookie_value;..."
-
-accounts: []

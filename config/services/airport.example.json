@@ -1,0 +1,9 @@
+{
+  "accounts": [
+    {
+      "base_url": "https://your-airport.example",
+      "email": "your_email@example.com",
+      "password": "your_password"
+    }
+  ]
+}

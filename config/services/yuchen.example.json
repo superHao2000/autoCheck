@@ -1,0 +1,9 @@
+{
+  "accounts": [
+    {
+      "url": "https://your-yuchen-site.example/api/checkin",
+      "username": "your_username",
+      "password": "your_password"
+    }
+  ]
+}

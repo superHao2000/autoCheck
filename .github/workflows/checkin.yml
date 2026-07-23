@@ -20,33 +20,16 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pyyaml requests
+          pip install requests
 
-      - name: Run YuChen check-in
+      - name: Run all configured check-ins
         env:
           GITHUB_ACTIONS: true
           YUCHEN_ACCOUNTS: ${{ secrets.YUCHEN_ACCOUNTS }}
+          GLADOS_ACCOUNTS: ${{ secrets.GLADOS_ACCOUNTS }}
+          AIRPORT_ACCOUNTS: ${{ secrets.AIRPORT_ACCOUNTS }}
+          JAVBUS_ACCOUNTS: ${{ secrets.JAVBUS_ACCOUNTS }}
+          AUTOCHECK_ACCOUNTS: ${{ secrets.AUTOCHECK_ACCOUNTS }}
           PUSH_CONFIG: ${{ secrets.PUSH_CONFIG }}
           USER_AGENT: ${{ secrets.USER_AGENT }}
-        run: python -m checkin.yuchen
-
-      - name: Run GlaDos check-in
-        env:
-          GITHUB_ACTIONS: true
-          GLADOS_ACCOUNTS: ${{ secrets.GLADOS_ACCOUNTS }}
-          PUSH_CONFIG: ${{ secrets.PUSH_CONFIG }}
-        run: python -m checkin.glados
-
-      - name: Run Airport check-in
-        env:
-          GITHUB_ACTIONS: true
-          AIRPORT_ACCOUNTS: ${{ secrets.AIRPORT_ACCOUNTS }}
-          PUSH_CONFIG: ${{ secrets.PUSH_CONFIG }}
-        run: python -m checkin.airport
-
-      - name: Run JavBus check-in
-        env:
-          GITHUB_ACTIONS: true
-          JAVBUS_ACCOUNTS: ${{ secrets.JAVBUS_ACCOUNTS }}
-          PUSH_CONFIG: ${{ secrets.PUSH_CONFIG }}
-        run: python -m checkin.javbus
+        run: python main.py

@@ -1,21 +1,19 @@
+"""AirPort 签到服务：先登录获取会话，再调用用户签到接口。"""
+
 import requests
 
-from ..utils import log, config
+from utils import log, config
+
+
+# 自动发现服务时使用的元数据；可被新服务实现作为模板。
+SERVICE_NAME = "AirPort"
+CONFIG_FILENAME = "airport.json"
+ENV_KEY = "AIRPORT_ACCOUNTS"
 
 
 def checkin(base_url: str, email: str, password: str) -> dict:
-    """
-    Airport 签到
-    
-    Args:
-        base_url: 站点地址
-        email: 邮箱/用户名
-        password: 密码
-        
-    Returns:
-        签到结果字典
-    """
-    # 构造登录 URL
+    """登录 AirPort 站点并签到，兼容 JSON 与旧版文本响应。"""
+    # 统一移除末尾斜杠，避免生成双斜杠接口地址。
     login_url = f"{base_url.rstrip('/')}/auth/login"
     checkin_url = f"{base_url.rstrip('/')}/user/checkin"
     
@@ -27,40 +25,40 @@ def checkin(base_url: str, email: str, password: str) -> dict:
     session.headers.update(headers)
     
     try:
-        # 1. 登录
+        # 登录与签到必须共享 Session，才能复用服务端设置的 Cookie。
         login_data = {
             'email': email,
             'password': password
         }
         login_resp = session.post(login_url, data=login_data, timeout=30)
         
-        # 检查登录结果
+        # 非 200 表示请求层失败，不再尝试签到。
         if login_resp.status_code != 200:
             return {'success': False, 'message': f'登录请求失败: {login_resp.status_code}'}
         
         # 尝试解析 JSON 响应
         try:
             login_json = login_resp.json()
-            # 检查是否登录成功
+            # 新版接口使用 success 布尔值，旧版可能只在正文中给出提示。
             if login_json.get('success') is True:
-                pass  # 登录成功，继续签到
+                pass  # 登录成功，继续签到。
             elif login_json.get('success') is False:
                 msg = login_json.get('message', '登录失败')
                 return {'success': False, 'message': f'登录失败: {msg}'}
             else:
-                # 可能是旧版 API，直接检查文本
+                # 旧版 API 未提供稳定 JSON 结构，回退到文本判断。
                 if '登录成功' in login_resp.text or 'success' in login_resp.text.lower():
                     pass
                 else:
                     return {'success': False, 'message': f'登录失败: {login_resp.text[:50]}'}
         except Exception:
-            # 非 JSON 响应，检查文本
+            # 非 JSON 响应同样使用旧版文本特征判断。
             if '登录成功' in login_resp.text or login_resp.status_code == 302:
                 pass
             else:
                 return {'success': False, 'message': f'登录失败: {login_resp.text[:50]}'}
         
-        # 2. 执行签到
+        # 仅在登录确认成功后请求签到接口。
         checkin_resp = session.post(checkin_url, timeout=30)
         
         try:
@@ -86,15 +84,7 @@ def checkin(base_url: str, email: str, password: str) -> dict:
 
 
 def run(accounts: list) -> dict:
-    """
-    运行签到任务
-    
-    Args:
-        accounts: 账号列表，每个账号应为包含 base_url, email, password 的字典
-        
-    Returns:
-        结果汇总
-    """
+    """逐账号执行 AirPort 登录与签到，隔离每个账号的失败。"""
     results = {
         'total': len(accounts),
         'success': 0,

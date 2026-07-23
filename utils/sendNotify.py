@@ -1,470 +1,266 @@
+"""可选通知渠道。
+
+本模块只在全部签到完成后由入口调用。每个渠道自行捕获异常，保证通知故障
+不会影响已经完成的签到结果。
+"""
+
 import base64
 import hashlib
 import hmac
 import json
-import re
 import time
 import urllib.parse
 
 import requests
 
-from utils.config import Conf
+from utils import config
 from utils.logger import log
 
 
-# class Push(BaseModel):
-#     HITOKOTO: str = "true"
-#     ''' 启用一言（随机句子）; 为空即关闭'''
-#     BARK: str = ""
-#     '''bark服务,自行搜索; secrets可填'''
-#     BARK_PUSH: str = ""
-#     '''bark自建服务器，要填完整链接，结尾的/不要'''
-#     PUSH_KEY: str = ""
-#     '''Server酱的PUSH_KEY; secrets可填'''
-#     TG_BOT_TOKEN: str = ""
-#     '''tg机器人的TG_BOT_TOKEN; secrets可填1407203283:AAG9rt-6RDaaX0HBLZQq0laNOh898iFYaRQ'''
-#     TG_USER_ID: str = ""
-#     '''tg机器人的TG_USER_ID; secrets可填 1434078534'''
-#     TG_API_HOST: str = ""
-#     '''tg 代理api'''
-#     TG_PROXY_IP: str = ""
-#     'tg机器人的TG_PROXY_IP; secrets可填'
-#     TG_PROXY_PORT: str = ""
-#     '''tg机器人的TG_PROXY_PORT; secrets可填'''
-#     DD_BOT_TOKEN: str = ""
-#     '''钉钉机器人的DD_BOT_TOKEN; secrets可填'''
-#     DD_BOT_SECRET: str = ""
-#     '''钉钉机器人的DD_BOT_SECRET; secrets可填'''
-#     QQ_SKEY: str = ""
-#     '''qq机器人的QQ_SKEY; secrets可填'''
-#     QQ_MODE: str = ""
-#     '''qq机器人的QQ_MODE; secrets可填'''
-#     QYWX_AM: str = ""
-#     '''企业微信'''
-#     QYWX_KEY: str = ""
-#     '''企业微信BOT'''
-#     PUSH_PLUS_TOKEN: str = ""
-#     '微信推送Plus+'
-#     FS_KEY: str = ""
-#     '''飞书群BOT'''
-#
-#     @classmethod
-#     def from_dict_list(cls, dict_list: List[Dict[str, Any]]):
-#         """
-#         将字典列表转换为该对象的属性。
-#         :param dict_list: 包含字典的列表
-#         :return: AirPort 对象的实例
-#         """
-#         # 检查输入类型
-#         if not isinstance(dict_list, list):
-#             raise ValueError("Input must be a list of dictionaries.")
-#
-#         merged_dict = {}
-#         for d in dict_list:
-#             # 检查每个元素是否为字典
-#             if not isinstance(d, dict):
-#                 raise ValueError("Each element in the list must be a dictionary.")
-#
-#             merged_dict.update(d)
-#
-#         # 创建并返回 AirPort 实例
-#         return cls(**merged_dict)
+REQUEST_TIMEOUT = 15
+
+
 class Push:
-    def __init__(self, **kwargs):
-        self.HITOKOTO = None
-        self.BARK = None
-        self.BARK_PUSH = None
-        self.PUSH_KEY = None
-        self.TG_BOT_TOKEN = None
-        self.TG_USER_ID = None
-        self.TG_API_HOST = None
-        self.TG_PROXY_IP = None
-        self.TG_PROXY_PORT = None
-        self.DD_BOT_TOKEN = None
-        self.DD_BOT_SECRET = None
-        self.QQ_SKEY = None
-        self.QQ_MODE = None
-        self.QYWX_AM = None
-        self.QYWX_KEY = None
-        self.PUSH_PLUS_TOKEN = None
-        self.FS_KEY = None
-        self.__dict__.update(kwargs)
+    """将字典形式的推送配置转换为属性形式的兼容包装。"""
+
+    def __init__(self, **values):
+        self.__dict__.update(values)
 
 
-send_Conf = Push(**Conf["PUSH"])
-# 通知服务
-HITOKOTO = send_Conf.HITOKOTO  # 启用一言（随机句子）; 为空即关闭
-BARK = send_Conf.BARK  # bark服务,自行搜索; secrets可填;
-BARK_PUSH = send_Conf.BARK_PUSH  # bark自建服务器，要填完整链接，结尾的/不要
-PUSH_KEY = send_Conf.PUSH_KEY  # Server酱的PUSH_KEY; secrets可填
-TG_BOT_TOKEN = send_Conf.TG_BOT_TOKEN  # tg机器人的TG_BOT_TOKEN; secrets可填1407203283:AAG9rt-6RDaaX0HBLZQq0laNOh898iFYaRQ
-TG_USER_ID = send_Conf.TG_USER_ID  # tg机器人的TG_USER_ID; secrets可填 1434078534
-TG_API_HOST = send_Conf.TG_API_HOST  # tg 代理api
-TG_PROXY_IP = send_Conf.TG_PROXY_IP  # tg机器人的TG_PROXY_IP; secrets可填
-TG_PROXY_PORT = send_Conf.TG_PROXY_PORT  # tg机器人的TG_PROXY_PORT; secrets可填
-DD_BOT_TOKEN = send_Conf.DD_BOT_TOKEN  # 钉钉机器人的DD_BOT_TOKEN; secrets可填
-DD_BOT_SECRET = send_Conf.DD_BOT_SECRET  # 钉钉机器人的DD_BOT_SECRET; secrets可填
-QQ_SKEY = send_Conf.QQ_SKEY  # qq机器人的QQ_SKEY; secrets可填
-QQ_MODE = send_Conf.QQ_MODE  # qq机器人的QQ_MODE; secrets可填
-QYWX_AM = send_Conf.QYWX_AM  # 企业微信
-QYWX_KEY = send_Conf.QYWX_KEY  # 企业微信BOT
-PUSH_PLUS_TOKEN = send_Conf.PUSH_PLUS_TOKEN  # 微信推送Plus+
-FS_KEY = send_Conf.FS_KEY  # 飞书群BOT
+def _value(name: str, default: str = "") -> str:
+    """读取当前推送配置，避免缓存导入时尚未加载的旧配置。"""
+    return str(config.PUSH.get(name, default) or default)
 
 
-def bark(title, content):
-    if not BARK:
-        log.info("bark服务的BARK未设置,\n取消推送")
+def _report(channel: str, response: dict, success: bool) -> None:
+    """按渠道统一记录推送结果，响应结构不符合预期时也视为失败。"""
+    if success:
+        log.info("%s 推送成功", channel)
+    else:
+        log.warning("%s 推送失败: %s", channel, response)
+
+
+def bark(title: str, content: str) -> None:
+    """通过官方 Bark 服务推送 URL 编码后的标题和正文。"""
+    token = _value("BARK")
+    if not token:
         return
-    log.info("bark服务启动")
     try:
         response = requests.get(
-            f"""https://api.day.app/{BARK}/{title}/{urllib.parse.quote_plus(content)}""").json()
-        if response['code'] == 200:
-            log.info('推送成功！')
-        else:
-            log.info('推送失败！')
-    except Exception as e:
-        log.error(f"报错信息:{e}")
-        log.info('推送失败！')
+            f"https://api.day.app/{token}/{urllib.parse.quote(title)}/{urllib.parse.quote(content)}",
+            timeout=REQUEST_TIMEOUT,
+        ).json()
+        _report("Bark", response, response.get("code") == 200)
+    except requests.RequestException as exc:
+        log.warning("Bark 推送请求失败: %s", exc)
 
 
-def bark_push(title, content):
-    if not BARK_PUSH:
-        log.info("bark自建服务的BARK_PUSH未设置,\n取消推送")
+def bark_push(title: str, content: str) -> None:
+    """通过自建 Bark 服务推送；BARK_PUSH 需为不带尾斜杠的服务地址。"""
+    endpoint = _value("BARK_PUSH").rstrip("/")
+    if not endpoint:
         return
-    log.info("bark自建服务启动")
     try:
         response = requests.get(
-            f"""{BARK_PUSH}/{title}/{urllib.parse.quote_plus(content)}""").json()
-        if response['code'] == 200:
-            log.info('推送成功！')
-        else:
-            log.info('推送失败！')
-    except Exception as e:
-        log.error(f"报错信息:{e}")
-        log.info('推送失败！')
+            f"{endpoint}/{urllib.parse.quote(title)}/{urllib.parse.quote(content)}",
+            timeout=REQUEST_TIMEOUT,
+        ).json()
+        _report("自建 Bark", response, response.get("code") == 200)
+    except requests.RequestException as exc:
+        log.warning("自建 Bark 推送请求失败: %s", exc)
 
 
-# server酱
-def serverJ(title, content):
-    if not PUSH_KEY:
-        log.info("server酱服务的PUSH_KEY未设置!!\n取消推送")
+def serverJ(title: str, content: str) -> None:
+    """使用 Server 酱旧版接口发送 Markdown 正文。"""
+    key = _value("PUSH_KEY")
+    if not key:
         return
-    log.info("serverJ服务启动")
     try:
-        data = {
-            "text": title,
-            "desp": content.replace("\n", "\n\n")
-        }
-        response = requests.post(f"https://sc.ftqq.com/{PUSH_KEY}.send", data=data).json()
-        log.debug(response)
-        if response['data']['errno'] == 0:
-            log.info('推送成功！')
-        else:
-            log.info('推送失败！')
-    except Exception as e:
-        log.error(f"报错信息:{e}")
-        log.info('推送失败！')
+        response = requests.post(
+            f"https://sc.ftqq.com/{key}.send",
+            data={"text": title, "desp": content.replace("\n", "\n\n")},
+            timeout=REQUEST_TIMEOUT,
+        ).json()
+        _report("Server 酱", response, response.get("data", {}).get("errno") == 0)
+    except requests.RequestException as exc:
+        log.warning("Server 酱推送请求失败: %s", exc)
 
 
-# tg通知
-def telegram_bot(title, content):
-    if not TG_BOT_TOKEN or not TG_USER_ID:
-        log.info("tg服务的TG_BOT_TOKEN或者TG_USER_ID未设置!!\n取消推送")
+def telegram_bot(title: str, content: str) -> None:
+    """调用 Telegram Bot API；配置代理时同时用于 HTTP 和 HTTPS。"""
+    token, chat_id = _value("TG_BOT_TOKEN"), _value("TG_USER_ID")
+    if not token or not chat_id:
         return
-    log.info("tg服务启动")
+    host = _value("TG_API_HOST") or "https://api.telegram.org"
+    if not host.startswith("http"):
+        host = f"https://{host}"
+    proxy_host, proxy_port = _value("TG_PROXY_IP"), _value("TG_PROXY_PORT")
+    proxies = None
+    if proxy_host and proxy_port:
+        proxy = f"http://{proxy_host}:{proxy_port}"
+        proxies = {"http": proxy, "https": proxy}
     try:
-        if TG_API_HOST:
-            if 'http' in TG_API_HOST:
-                url = f"{TG_API_HOST}/bot{TG_BOT_TOKEN}/sendMessage"
-            else:
-                url = f"https://{TG_API_HOST}/bot{TG_BOT_TOKEN}/sendMessage"
-        else:
-            url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/sendMessage"
-        headers = {'Content-Type': 'application/x-www-form-urlencoded'}
-        payload = {'chat_id': str(TG_USER_ID), 'text': f'{title}\n\n{content}', 'disable_web_page_preview': 'true'}
-        proxies = None
-        if TG_PROXY_IP and TG_PROXY_PORT:
-            proxyStr = "http://{}:{}".format(TG_PROXY_IP, TG_PROXY_PORT)
-            proxies = {"http": proxyStr, "https": proxyStr}
-            response = requests.post(url=url, headers=headers, params=payload, proxies=proxies).json()
-            log.debug(response)
-            if response['ok']:
-                log.info('推送成功！')
-            else:
-                log.info('推送失败！')
-    except Exception as e:
-        log.error(f"报错信息:{e}")
-        log.info('推送失败！')
+        response = requests.post(
+            f"{host.rstrip('/')}/bot{token}/sendMessage",
+            data={"chat_id": chat_id, "text": f"{title}\n\n{content}", "disable_web_page_preview": "true"},
+            proxies=proxies,
+            timeout=REQUEST_TIMEOUT,
+        ).json()
+        _report("Telegram", response, response.get("ok") is True)
+    except requests.RequestException as exc:
+        log.warning("Telegram 推送请求失败: %s", exc)
 
 
-# 钉钉机器人
-def dingding_bot(title, content):
-    if not DD_BOT_TOKEN and not DD_BOT_SECRET:
-        log.info("钉钉机器人服务的DD_BOT_TOKEN或者DD_BOT_SECRET未设置!!\n取消推送")
+def dingding_bot(title: str, content: str) -> None:
+    """生成钉钉签名并发送文本机器人消息。"""
+    token, secret = _value("DD_BOT_TOKEN"), _value("DD_BOT_SECRET")
+    if not token or not secret:
         return
-    log.info("钉钉机器人服务启动")
+    timestamp = str(round(time.time() * 1000))
+    signature = base64.b64encode(
+        hmac.new(secret.encode(), f"{timestamp}\n{secret}".encode(), hashlib.sha256).digest()
+    ).decode()
+    url = f"https://oapi.dingtalk.com/robot/send?access_token={token}&timestamp={timestamp}&sign={urllib.parse.quote_plus(signature)}"
     try:
-        timestamp = str(round(time.time() * 1000))  # 时间戳
-        secret_enc = DD_BOT_SECRET.encode('utf-8')
-        string_to_sign = '{}\n{}'.format(timestamp, DD_BOT_SECRET)
-        string_to_sign_enc = string_to_sign.encode('utf-8')
-        hmac_code = hmac.new(secret_enc, string_to_sign_enc, digestmod=hashlib.sha256).digest()
-        sign = urllib.parse.quote_plus(base64.b64encode(hmac_code))  # 签名
-        url = f'https://oapi.dingtalk.com/robot/send?access_token={DD_BOT_TOKEN}&timestamp={timestamp}&sign={sign}'
-        headers = {'Content-Type': 'application/json;charset=utf-8'}
-        data = {
-            'msgtype': 'text',
-            'text': {'content': f'{title}\n\n{content}'}
-        }
-        response = requests.post(url=url, data=json.dumps(data), headers=headers, timeout=15).json()
-        log.debug(response)
-        if not response['errcode']:
-            log.info('推送成功！')
-        else:
-            log.info('推送失败！')
-    except Exception as e:
-        log.error(f"报错信息:{e}")
-        log.info('推送失败！')
+        response = requests.post(
+            url,
+            json={"msgtype": "text", "text": {"content": f"{title}\n\n{content}"}},
+            timeout=REQUEST_TIMEOUT,
+        ).json()
+        _report("钉钉", response, response.get("errcode") == 0)
+    except requests.RequestException as exc:
+        log.warning("钉钉推送请求失败: %s", exc)
 
 
-# qsmg酱
-def coolpush_bot(title, content):
-    if not QQ_SKEY or not QQ_MODE:
-        log.info("qq服务的QQ_SKEY或者QQ_MODE未设置!!\n取消推送")
+def coolpush_bot(title: str, content: str) -> None:
+    """通过 Qmsg/Cool Push 发送纯文本消息。"""
+    key, mode = _value("QQ_SKEY"), _value("QQ_MODE")
+    if not key or not mode:
         return
-    log.info("qq服务启动")
     try:
-        url = f"https://qmsg.zendee.cn/{QQ_MODE}/{QQ_SKEY}"
-        payload = {'msg': f"{title}\n\n{content}".encode('utf-8')}
-        response = requests.post(url=url, params=payload).json()
-        if response['code'] == 0:
-            log.info('推送成功！')
-        else:
-            log.info('推送失败！')
-    except Exception as e:
-        log.error(f"报错信息:{e}")
-        log.info('推送失败！')
+        response = requests.post(
+            f"https://qmsg.zendee.cn/{mode}/{key}", data={"msg": f"{title}\n\n{content}"}, timeout=REQUEST_TIMEOUT
+        ).json()
+        _report("Cool Push", response, response.get("code") == 0)
+    except requests.RequestException as exc:
+        log.warning("Cool Push 请求失败: %s", exc)
 
 
-# push推送
-def pushplus_bot(title, content):
-    if not PUSH_PLUS_TOKEN:
-        log.info("PUSHPLUS服务的token未设置!!\n取消推送")
+def pushplus_bot(title: str, content: str) -> None:
+    """使用 PushPlus Token 发送签到结果。"""
+    token = _value("PUSH_PLUS_TOKEN")
+    if not token:
         return
-    log.info("PUSHPLUS服务启动")
     try:
-        url = 'http://www.pushplus.plus/send'
-        data = {
-            "token": PUSH_PLUS_TOKEN,
-            "title": title,
-            "content": content
-        }
-        body = json.dumps(data).encode(encoding='utf-8')
-        headers = {'Content-Type': 'application/json'}
-        response = requests.post(url=url, data=body, headers=headers).json()
-        log.debug(response)
-        if response['code'] == 200:
-            log.info('推送成功！')
-        else:
-            log.info('推送失败！')
-    except Exception as e:
-        log.error(f"报错信息:{e}")
-        log.info('推送失败！')
+        response = requests.post(
+            "https://www.pushplus.plus/send",
+            json={"token": token, "title": title, "content": content},
+            timeout=REQUEST_TIMEOUT,
+        ).json()
+        _report("PushPlus", response, response.get("code") == 200)
+    except requests.RequestException as exc:
+        log.warning("PushPlus 请求失败: %s", exc)
 
 
-# 企业微信
-def wecom_key(title, content):
-    if not QYWX_KEY:
-        log.info("QYWX_KEY未设置!!\n取消推送")
+def wecom_key(title: str, content: str) -> None:
+    """通过企业微信群机器人发送文本；长正文由 send 分段调用。"""
+    key = _value("QYWX_KEY")
+    if not key:
         return
-    log.info("QYWX_KEY服务启动")
     try:
-        # log.info("content" + content)
-        headers = {'Content-Type': 'application/json'}
-        data = {
-            "msgtype": "text",
-            "text": {
-                "content": title + "\n" + content.replace("\n", "\n\n")
-            }
-        }
-        # log.info(f"https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key={QYWX_KEY}")
-        response = requests.post(f"https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key={QYWX_KEY}", json=data,
-                                 headers=headers).json()
-        log.debug(response)
-        # todo 不知道怎么判断是否成功
-    except Exception as e:
-        log.error(f"报错信息:{e}")
-        log.info("推送失败")
+        response = requests.post(
+            f"https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key={key}",
+            json={"msgtype": "text", "text": {"content": f"{title}\n{content}"}},
+            timeout=REQUEST_TIMEOUT,
+        ).json()
+        _report("企业微信群机器人", response, response.get("errcode") == 0)
+    except requests.RequestException as exc:
+        log.warning("企业微信机器人请求失败: %s", exc)
 
 
-# 飞书机器人推送
-def fs_key(title, content):
-    if not FS_KEY:
-        log.info("FS_KEY未设置!!\n取消推送")
+def fs_key(title: str, content: str) -> None:
+    """通过飞书群机器人 Webhook 发送文本消息。"""
+    key = _value("FS_KEY")
+    if not key:
         return
-    log.info("FS_KEY服务启动")
     try:
-        # log.info("content" + content)
-        headers = {'Content-Type': 'application/json'}
-        data = {
-            "msg_type": "text",
-            "content": {
-                "text": title + "\n" + content.replace("\n", "\n\n")
-            }
-        }
-        # log.info(f"https://open.feishu.cn/open-apis/bot/v2/hook/{FS_KEY}")
-        response = requests.post(f"https://open.feishu.cn/open-apis/bot/v2/hook/{FS_KEY}", json=data,
-                                 headers=headers).json()
-        log.debug(response)
-        # todo 不知道怎么判断是否成功
-    except Exception as e:
-        log.error(f"报错信息:{e}")
-        log.info("推送失败")
-
-
-# 企业微信 APP 推送
-def wecom_app(title, content):
-    if not QYWX_AM:
-        log.info("QYWX_AM 并未设置！！\n取消推送")
-        return
-    QYWX_AM_AY = re.split(',', QYWX_AM)
-    if 4 < len(QYWX_AM_AY) > 5:
-        log.info("QYWX_AM 设置错误！！\n取消推送")
-        return
-    log.info("QYWX_APP服务启动")
-    try:
-        corpid = QYWX_AM_AY[0]
-        corpsecret = QYWX_AM_AY[1]
-        touser = QYWX_AM_AY[2]
-        agentid = QYWX_AM_AY[3]
-        try:
-            media_id = QYWX_AM_AY[4]
-        except:
-            media_id = ''
-        wx = WeCom(corpid, corpsecret, agentid)
-        # 如果没有配置 media_id 默认就以 text 方式发送
-        if not media_id:
-            message = title + '\n\n' + content
-            response = wx.send_text(message, touser)
-        else:
-            response = wx.send_mpnews(title, content, media_id, touser)
-        if response == 'ok':
-            log.info('推送成功！')
-        else:
-            log.info('推送失败！错误信息如下：\n', response)
-    except Exception as e:
-        log.error(f"报错信息:{e}")
-        log.info("推送失败")
+        response = requests.post(
+            f"https://open.feishu.cn/open-apis/bot/v2/hook/{key}",
+            json={"msg_type": "text", "content": {"text": f"{title}\n{content}"}},
+            timeout=REQUEST_TIMEOUT,
+        ).json()
+        _report("飞书", response, response.get("StatusCode") == 0 or response.get("code") == 0)
+    except requests.RequestException as exc:
+        log.warning("飞书机器人请求失败: %s", exc)
 
 
 class WeCom:
-    def __init__(self, corpid, corpsecret, agentid):
-        self.CORPID = corpid
-        self.CORPSECRET = corpsecret
-        self.AGENTID = agentid
+    """企业微信应用消息客户端，负责 Token 获取和消息提交。"""
 
-    def get_access_token(self):
-        url = 'https://qyapi.weixin.qq.com/cgi-bin/gettoken'
-        values = {'corpid': self.CORPID,
-                  'corpsecret': self.CORPSECRET,
-                  }
-        req = requests.post(url, params=values)
-        data = json.loads(req.text)
-        return data["access_token"]
+    def __init__(self, corpid: str, corpsecret: str, agentid: str):
+        self.corpid = corpid
+        self.corpsecret = corpsecret
+        self.agentid = agentid
 
-    def send_text(self, message, touser="@all"):
-        send_url = 'https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token=' + self.get_access_token()
-        send_values = {
-            "touser": touser,
-            "msgtype": "text",
-            "agentid": self.AGENTID,
-            "text": {
-                "content": message
-            },
-            "safe": "0"
-        }
-        send_msges = (bytes(json.dumps(send_values), 'utf-8'))
-        respone = requests.post(send_url, send_msges)
-        respone = respone.json()
-        log.debug(respone)
-        return respone["errmsg"]
+    def get_access_token(self) -> str:
+        """获取企业微信应用访问令牌；失败时抛出请求或字段异常给调用方处理。"""
+        response = requests.get(
+            "https://qyapi.weixin.qq.com/cgi-bin/gettoken",
+            params={"corpid": self.corpid, "corpsecret": self.corpsecret},
+            timeout=REQUEST_TIMEOUT,
+        ).json()
+        return response["access_token"]
 
-    def send_mpnews(self, title, message, media_id, touser="@all"):
-        send_url = 'https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token=' + self.get_access_token()
-        send_values = {
-            "touser": touser,
-            "msgtype": "mpnews",
-            "agentid": self.AGENTID,
-            "mpnews": {
-                "articles": [
-                    {
-                        "title": title,
-                        "thumb_media_id": media_id,
-                        "author": "Author",
-                        "content_source_url": "",
-                        "content": message.replace('\n', '<br/>'),
-                        "digest": message
-                    }
-                ]
-            }
-        }
-        send_msges = (bytes(json.dumps(send_values), 'utf-8'))
-        respone = requests.post(send_url, send_msges)
-        respone = respone.json()
-        log.debug(respone)
-        return respone["errmsg"]
+    def send_text(self, message: str, touser: str) -> dict:
+        """向指定成员或 @all 发送企业微信应用文本。"""
+        return requests.post(
+            f"https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token={self.get_access_token()}",
+            json={"touser": touser, "msgtype": "text", "agentid": self.agentid, "text": {"content": message}},
+            timeout=REQUEST_TIMEOUT,
+        ).json()
+
+
+def wecom_app(title: str, content: str) -> None:
+    """按 QYWX_AM 的 corpId,secret,user,agentId 格式发送企业微信应用消息。"""
+    parts = [part.strip() for part in _value("QYWX_AM").split(",") if part.strip()]
+    if not parts:
+        return
+    if len(parts) != 4:
+        log.warning("QYWX_AM 应包含 corpid,corpsecret,touser,agentid 四项")
+        return
+    try:
+        response = WeCom(parts[0], parts[1], parts[3]).send_text(f"{title}\n\n{content}", parts[2])
+        _report("企业微信应用", response, response.get("errcode") == 0)
+    except (KeyError, requests.RequestException) as exc:
+        log.warning("企业微信应用请求失败: %s", exc)
 
 
 def one() -> str:
-    """
-    获取一条一言。
-    :return:
-    """
-    url = "https://v1.hitokoto.cn/"
-    res = requests.get(url).json()
-    return res["hitokoto"] + "\n————" + res["from"]
+    """获取一条一言文本；调用方应在失败时继续发送原始通知。"""
+    response = requests.get("https://v1.hitokoto.cn/", timeout=REQUEST_TIMEOUT).json()
+    return f"{response['hitokoto']}\n————{response['from']}"
 
 
-def send(title, content):
-    """
-    使用 bark, telegram bot, dingding bot, server, feishuJ 发送手机推送
-    :param title:
-    :param content:
-    :return:
-    """
-    # 获取一条一言
-    if HITOKOTO:
-        content += f"\n\n{one()}"
-    else:
-        content += ""
-    if BARK:
-        bark(title=title, content=content)
-    if BARK_PUSH:
-        bark_push(title=title, content=content)
-    if PUSH_KEY:
-        serverJ(title=title, content=content)
-    if DD_BOT_TOKEN and DD_BOT_TOKEN:
-        dingding_bot(title=title, content=content)
-    if TG_BOT_TOKEN and TG_USER_ID:
-        telegram_bot(title=title, content=content)
-    if QQ_SKEY and QQ_MODE:
-        coolpush_bot(title=title, content=content)
-    if PUSH_PLUS_TOKEN:
-        pushplus_bot(title=title, content=content)
-    if QYWX_AM:
-        wecom_app(title=title, content=content)
-    if QYWX_KEY:
-        for i in range(int(len(content) / 2000) + 1):
-            wecom_key(title=title, content=content[i * 2000:(i + 1) * 2000])
-    if QYWX_KEY:
-        fs_key(title=title, content=content)
+def send(title: str, content: str) -> None:
+    """将同一签到汇总分发到所有已配置的通知渠道。"""
+    if _value("HITOKOTO"):
+        try:
+            content = f"{content}\n\n{one()}"
+        except (KeyError, requests.RequestException) as exc:
+            log.warning("获取一言失败，继续发送原通知: %s", exc)
 
+    # 每个函数会先检查自身配置，未配置的渠道无需额外判断。
+    bark(title, content)
+    bark_push(title, content)
+    serverJ(title, content)
+    telegram_bot(title, content)
+    dingding_bot(title, content)
+    coolpush_bot(title, content)
+    pushplus_bot(title, content)
+    wecom_app(title, content)
 
-def main():
-    send('title', "content")
-
-
-if __name__ == '__main__':
-    main()
+    # 企业微信机器人单条文本上限约 2,000 字符，按正文切分避免被接口拒绝。
+    if _value("QYWX_KEY"):
+        for start in range(0, len(content) or 1, 2000):
+            wecom_key(title, content[start : start + 2000])
+    fs_key(title, content)

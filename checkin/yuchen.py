@@ -1,20 +1,18 @@
+"""YuChen 签到服务：以账号密码提交站点提供的签到地址。"""
+
 import requests
 
-from ..utils import log, config
+from utils import log, config
+
+
+# 自动发现服务时使用的元数据；新增服务可按此约定声明。
+SERVICE_NAME = "YuChen"
+CONFIG_FILENAME = "yuchen.json"
+ENV_KEY = "YUCHEN_ACCOUNTS"
 
 
 def checkin(url: str, username: str, password: str) -> dict:
-    """
-    签到请求
-    
-    Args:
-        url: 签到地址
-        username: 用户名
-        password: 密码
-        
-    Returns:
-        签到结果字典
-    """
+    """向 YuChen 签到接口提交账号密码，并规范化不同响应格式。"""
     data = {
         'username': username,
         'password': password
@@ -27,7 +25,7 @@ def checkin(url: str, username: str, password: str) -> dict:
         response = requests.post(url, data=data, headers=headers, timeout=30)
         response.encoding = 'utf-8'
         
-        # 解析返回
+        # 部分站点返回 HTML/文本，先匹配常见关键字再尝试 JSON。
         text = response.text
         if '签到成功' in text or '已签到' in text or 'success' in text.lower():
             return {'success': True, 'message': '签到成功'}
@@ -47,15 +45,7 @@ def checkin(url: str, username: str, password: str) -> dict:
 
 
 def run(accounts: list) -> dict:
-    """
-    运行签到任务
-    
-    Args:
-        accounts: 账号列表，每个账号应为包含 username, password, url 的字典
-        
-    Returns:
-        结果汇总
-    """
+    """逐账号执行 YuChen 签到；配置或请求失败不影响后续账号。"""
     results = {
         'total': len(accounts),
         'success': 0,
@@ -64,12 +54,12 @@ def run(accounts: list) -> dict:
     }
     
     for i, account in enumerate(accounts):
-        # 提取账号信息
+        # 同时兼容未经过配置标准化的旧字段。
         url = account.get('url', '')
         username = account.get('username', account.get('user', ''))
         password = account.get('password', account.get('pass', ''))
         
-        # 检查必要字段
+        # 缺少凭据属于单账号配置错误，记录后继续处理下一账号。
         if not url or not username or not password:
             result = {
                 'username': username or f'账号{i+1}',
@@ -81,11 +71,11 @@ def run(accounts: list) -> dict:
             log.warning(f"YuChen 账号 {username or i+1} 配置不完整，跳过")
             continue
         
-        # 执行签到
+        # checkin 已将网络和响应解析错误转换为结果字典。
         log.info(f"YuChen 开始签到: {username}")
         result = checkin(url, username, password)
         
-        # 记录结果
+        # 每个账号均保存明细，供入口汇总和推送展示。
         result['username'] = username
         if result.get('success'):
             results['success'] += 1

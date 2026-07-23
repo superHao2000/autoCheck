@@ -1,7 +1,4 @@
-#!/usr/bin/env python3
-"""
-工具模块
-"""
+"""工具包：对外导出统一日志对象，并按需加载其他辅助模块。"""
 
 import logging
 import sys
@@ -14,7 +11,7 @@ logging.basicConfig(
     stream=sys.stdout
 )
 
-# 使用标准 logging 替代 loguru
+# 使用标准 logging，避免调用方依赖第三方日志库。
 log = logging.getLogger('autocheck')
 
 

@@ -1,411 +1,151 @@
+"""配置加载器：统一处理本地 JSON、单服务环境变量和聚合环境变量。"""
+
 import json
 import os
-import os.path
-import shutil
-import sys
-from json import JSONDecodeError
-from typing import Any, Dict, List, Optional
-
-import yaml
-
-
-# ============ 字段映射配置 (实现配置与代码解耦) ============
-# 允许配置文件使用任意键名，代码通过映射获取值
-SERVICE_FIELD_MAPPING = {
-    "YuChen": {
-        "url": ["url", "base_url", "domain"],
-        "username": ["username", "user", "account"],
-        "password": ["password", "pass", "pwd"],
-    },
-    "GlaDos": {
-        "cookies": ["cookies", "cookie"],
-    },
-    "AirPort": {
-        "base_url": ["base_url", "url", "site"],
-        "email": ["email", "username", "user", "account"],
-        "password": ["password", "pass", "pwd"],
-    },
-    "JavBus": {
-        "url": ["url", "site_url", "domain"],
-        "cookies": ["cookies", "cookie"],
-    },
-    "_common": {
-        "user_agent": ["user_agent", "user-agent", "ua"],
-    }
-}
-
-
-def get_field_value(account: Dict[str, Any], service: str) -> Dict[str, Any]:
-    """
-    根据映射获取账号信息
-    
-    Args:
-        account: 原始账号配置字典
-        service: 服务名称
-        
-    Returns:
-        标准化后的账号字典
-    """
-    result = {}
-    mapping = SERVICE_FIELD_MAPPING.get(service, {})
-    common_mapping = SERVICE_FIELD_MAPPING.get("_common", {})
-    
-    # 合并服务专属映射和通用映射
-    all_mappings = {**common_mapping, **mapping}
-    
-    for std_key, alt_keys in all_mappings.items():
-        for alt_key in alt_keys:
-            if alt_key in account:
-                result[std_key] = account[alt_key]
-                break
-    
-    return result
-
-
-def normalize_account(account: Dict[str, Any], service: str) -> Dict[str, Any]:
-    """
-    标准化账号配置
-    
-    允许配置文件使用任意字段名，自动映射到标准字段
-    """
-    normalized = get_field_value(account, service)
-    # 添加原始字段（保留兼容性）
-    for k, v in account.items():
-        if k not in normalized:
-            normalized[k] = v
-    return normalized
-
-# 判断是否在 GitHub Actions 环境中运行
-IS_GITHUB_ACTIONS = os.environ.get('GITHUB_ACTIONS', '').lower() == 'true'
+from pathlib import Path
+from typing import Any
 
 from utils.logger import log
 
-ROOT_PATH = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-"""主目录"""
-CONFIG_DIR = os.path.join(ROOT_PATH, 'config')
-"""配置目录"""
-CONFIG_PATH = os.path.join(ROOT_PATH, 'config.yaml')
-"""旧版数据文件目录 (兼容)"""
-CONFIG_PATH_BAK = os.path.join(ROOT_PATH, 'config.yaml.bak')
 
-# 服务配置文件路径
-SERVICE_CONFIG_DIR = os.path.join(CONFIG_DIR, 'services')
-YUCHEN_CONFIG = os.path.join(SERVICE_CONFIG_DIR, 'yuchen.yaml')
-GLADOS_CONFIG = os.path.join(SERVICE_CONFIG_DIR, 'glados.yaml')
-AIRPORT_CONFIG = os.path.join(SERVICE_CONFIG_DIR, 'airport.yaml')
-JAVBUS_CONFIG = os.path.join(SERVICE_CONFIG_DIR, 'javbus.yaml')
-PUSH_CONFIG = os.path.join(CONFIG_DIR, 'push.yaml')
+# 所有配置路径均相对项目根目录计算，避免依赖启动时的工作目录。
+ROOT_PATH = Path(__file__).resolve().parents[1]
+SERVICE_CONFIG_DIR = ROOT_PATH / "config" / "services"
+PUSH_CONFIG = ROOT_PATH / "config" / "push.json"
+ACCOUNTS_BUNDLE_ENV_KEY = "AUTOCHECK_ACCOUNTS"
+
+# 兼容历史字段名；标准化后服务代码只读取规范字段。
+SERVICE_FIELD_MAPPING = {
+    "YuChen": {"url": ("url", "base_url", "domain"), "username": ("username", "user", "account"), "password": ("password", "pass", "pwd")},
+    "GlaDos": {"cookies": ("cookies", "cookie")},
+    "AirPort": {"base_url": ("base_url", "url", "site"), "email": ("email", "username", "user", "account"), "password": ("password", "pass", "pwd")},
+    "JavBus": {"url": ("url", "site_url", "domain"), "cookies": ("cookies", "cookie")},
+    "_common": {"user_agent": ("user_agent", "user-agent", "ua")},
+}
+
+# 以下值仅由 load_all_configs 显式刷新，不在模块导入时读取文件或退出进程。
+ACCOUNT: dict[str, list[dict[str, Any]]] = {}
+PUSH: dict[str, Any] = {}
+USER_AGENT = ""
+YUCHEN_ACCOUNTS: list[dict[str, Any]] = []
+GLADOS_ACCOUNTS: list[dict[str, Any]] = []
+AIRPORT_ACCOUNTS: list[dict[str, Any]] = []
+JAVBUS_ACCOUNTS: list[dict[str, Any]] = []
 
 
-def read_yaml(file_path: str) -> Optional[Dict[str, Any]]:
-    """
-    读取 YAML 配置文件
-    
-    Args:
-        file_path: 文件路径
-        
-    Returns:
-        解析后的字典，文件不存在返回 None
-    """
-    if not os.path.exists(file_path):
+def read_json(path: Path) -> Any:
+    """读取一个 JSON 文件；不存在返回 None，格式错误给出包含路径的异常。"""
+    if not path.exists():
         return None
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return yaml.safe_load(f) or {}
-    except (ValidationError, JSONDecodeError):
-        log.exception(f"读取配置文件失败: {file_path}")
-        raise
-    except Exception:
-        log.exception(f"读取配置文件失败: {file_path}")
-        raise
+        with path.open("r", encoding="utf-8") as file:
+            return json.load(file)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"配置文件格式错误: {path}") from exc
 
 
-def load_service_config(config_path: str) -> List[Dict[str, Any]]:
-    """
-    加载服务配置
-    
-    Args:
-        config_path: 配置文件路径
-        
-    Returns:
-        账号列表
-    """
-    config = read_yaml(config_path)
-    if config:
-        # 支持 'accounts' 或直接是列表的格式
-        if isinstance(config, list):
-            return config
-        return config.get('accounts', [])
-    return []
+def normalize_account(account: dict[str, Any], service: str) -> dict[str, Any]:
+    """保留原始字段，并为已知别名补充服务所需的规范字段。"""
+    normalized = dict(account)
+    mapping = {**SERVICE_FIELD_MAPPING["_common"], **SERVICE_FIELD_MAPPING.get(service, {})}
+    for canonical, aliases in mapping.items():
+        for alias in aliases:
+            if alias in account:
+                normalized[canonical] = account[alias]
+                break
+    return normalized
 
 
-def load_service_accounts(service: str, config_path: str) -> List[Dict[str, Any]]:
-    """
-    加载并标准化服务账号配置
-    
-    Args:
-        service: 服务名称 (YuChen, GlaDos, AirPort, JavBus)
-        config_path: 配置文件路径
-        
-    Returns:
-        标准化后的账号列表
-    """
-    raw_accounts = load_service_config(config_path)
-    # 应用字段映射，标准化每个账号
-    return [normalize_account(acc, service) for acc in raw_accounts]
-
-
-def load_github_service_accounts(service: str, env_key: str) -> List[Dict[str, Any]]:
-    """
-    从 GitHub Actions 环境变量加载并标准化服务账号配置
-    
-    Args:
-        service: 服务名称
-        env_key: 环境变量键名
-        
-    Returns:
-        标准化后的账号列表
-    """
-    env_val = os.environ.get(env_key, '')
-    if not env_val:
+def _accounts_from_value(value: Any, source: str, service: str) -> list[dict[str, Any]]:
+    """校验账号列表格式，过滤无效项并执行字段标准化。"""
+    if isinstance(value, dict):
+        value = value.get("accounts", [])
+    if value is None:
         return []
+    if not isinstance(value, list):
+        log.warning("%s 的账号配置必须是列表，已跳过", source)
+        return []
+
+    accounts: list[dict[str, Any]] = []
+    for index, account in enumerate(value, start=1):
+        if not isinstance(account, dict):
+            log.warning("%s 第 %s 个账号不是对象，已跳过", source, index)
+            continue
+        accounts.append(normalize_account(account, service))
+    return accounts
+
+
+def _load_accounts_bundle() -> dict[str, Any]:
+    """解析可选的 AUTOCHECK_ACCOUNTS 聚合 JSON 对象。"""
+    raw = os.environ.get(ACCOUNTS_BUNDLE_ENV_KEY)
+    if not raw:
+        return {}
     try:
-        raw_accounts = json.loads(env_val)
-        if isinstance(raw_accounts, list):
-            return [normalize_account(acc, service) for acc in raw_accounts]
+        value = json.loads(raw)
     except json.JSONDecodeError:
-        log.warning(f"GitHub 环境变量 {env_key} JSON 解析失败")
+        log.warning("环境变量 %s 不是有效 JSON，已忽略", ACCOUNTS_BUNDLE_ENV_KEY)
+        return {}
+    if not isinstance(value, dict):
+        log.warning("环境变量 %s 必须是 JSON 对象，已忽略", ACCOUNTS_BUNDLE_ENV_KEY)
+        return {}
+    return value
+
+
+def load_service_accounts(service: str, filename: str, env_key: str) -> list[dict[str, Any]]:
+    """按单服务变量、聚合变量、本地 JSON 的顺序加载账号。
+
+    单服务环境变量内容非法时直接跳过该服务，避免在调度环境中意外回退到
+    机器上的旧凭据。
+    """
+    env_value = os.environ.get(env_key)
+    if env_value:
+        try:
+            return _accounts_from_value(json.loads(env_value), f"环境变量 {env_key}", service)
+        except json.JSONDecodeError:
+            log.warning("环境变量 %s 不是有效 JSON，已跳过该服务", env_key)
+            return []
+
+    bundle = _load_accounts_bundle()
+    # 聚合配置优先使用模块名，也兼容显示名和单服务环境变量名。
+    bundle_keys = (Path(filename).stem, service, env_key)
+    for bundle_key in bundle_keys:
+        if bundle_key in bundle:
+            return _accounts_from_value(
+                bundle[bundle_key], f"环境变量 {ACCOUNTS_BUNDLE_ENV_KEY}.{bundle_key}", service
+            )
+
+    # 仅加载真实 JSON；.example.json 仅用于复制模板，绝不作为运行期凭据。
+    config_path = SERVICE_CONFIG_DIR / filename
+    local_value = read_json(config_path)
+    if local_value is not None:
+        return _accounts_from_value(local_value, str(config_path), service)
+
     return []
 
 
-def load_push_config() -> Dict[str, Any]:
-    """
-    加载推送配置
-    
-    Returns:
-        推送配置字典
-    """
-    # 优先从新配置文件加载
-    push_config = read_yaml(PUSH_CONFIG)
-    if push_config:
-        return push_config
-    
-    # 回退到旧配置
-    if os.path.exists(CONFIG_PATH):
+def load_push_config() -> dict[str, Any]:
+    """加载推送配置；环境变量 PUSH_CONFIG 优先于本地 push.json。"""
+    raw = os.environ.get("PUSH_CONFIG")
+    if raw:
         try:
-            with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
-                config = yaml.safe_load(f) or {}
-                return config.get('PUSH', {})
-        except Exception:
-            pass
-    return {}
-
-
-def get_user_agent() -> str:
-    """
-    获取 User-Agent
-    
-    Returns:
-        User-Agent 字符串
-    """
-    # 优先从 push.yaml 加载
-    push_config = read_yaml(PUSH_CONFIG)
-    if push_config and push_config.get('USER_AGENT'):
-        return push_config['USER_AGENT']
-    
-    # 回退到旧配置
-    if os.path.exists(CONFIG_PATH):
-        try:
-            with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
-                config = yaml.safe_load(f) or {}
-                return config.get('USER_AGENT', '')
-        except Exception:
-            pass
-    return ''
-
-
-# ============ 加载配置 ============
-
-def load_github_config() -> Dict[str, Any]:
-    """
-    从 GitHub Actions 环境变量加载配置
-    
-    环境变量格式:
-    - YUCHEN_ACCOUNTS: JSON 字符串数组
-    - GLADOS_ACCOUNTS: JSON 字符串数组
-    - AIRPORT_ACCOUNTS: JSON 字符串数组
-    - JAVBUS_ACCOUNTS: JSON 字符串数组
-    - PUSH_CONFIG: JSON 对象
-    - USER_AGENT: 字符串
-    
-    Returns:
-        包含所有配置的字典
-    """
-    config = {
-        'YUCHEN_ACCOUNTS': [],
-        'GLADOS_ACCOUNTS': [],
-        'AIRPORT_ACCOUNTS': [],
-        'JAVBUS_ACCOUNTS': [],
-        'PUSH': {},
-        'USER_AGENT': ''
-    }
-    
-    # 读取各服务账号 (JSON 字符串)
-    for key in ['YUCHEN_ACCOUNTS', 'GLADOS_ACCOUNTS', 'AIRPORT_ACCOUNTS', 'JAVBUS_ACCOUNTS']:
-        env_val = os.environ.get(key, '')
-        if env_val:
-            try:
-                config[key] = json.loads(env_val)
-            except json.JSONDecodeError:
-                log.warning(f"GitHub 环境变量 {key} JSON 解析失败")
-    
-    # 读取推送配置
-    push_env = os.environ.get('PUSH_CONFIG', '')
-    if push_env:
-        try:
-            config['PUSH'] = json.loads(push_env)
+            value = json.loads(raw)
+            return value if isinstance(value, dict) else {}
         except json.JSONDecodeError:
-            log.warning("GitHub 环境变量 PUSH_CONFIG JSON 解析失败")
-    
-    # 读取 User-Agent
-    config['USER_AGENT'] = os.environ.get('USER_AGENT', '')
-    
-    return config
+            log.warning("环境变量 PUSH_CONFIG 不是有效 JSON，已忽略")
+            return {}
+    value = read_json(PUSH_CONFIG)
+    return value if isinstance(value, dict) else {}
 
 
-def load_all_configs() -> None:
-    """
-    加载所有配置 (全局变量)
-    
-    加载优先级:
-    1. GitHub Actions 环境变量 (如果 GITHUB_ACTIONS=true)
-    2. config/services/ 下的独立配置文件
-    3. 旧的 config.yaml (向后兼容)
-    """
+def load_all_configs(services: list[Any]) -> None:
+    """为已发现服务刷新运行期配置，不产生导入时副作用。"""
     global ACCOUNT, PUSH, USER_AGENT
-    global YUCHEN_ACCOUNTS, GLADOS_ACCOUNTS, AIRPORT_ACCOUNTS, JAVBUS_ACCOUNTS
-    
-    # 初始化
-    ACCOUNT = {}
-    PUSH = {}
-    USER_AGENT = ''
-    YUCHEN_ACCOUNTS = []
-    GLADOS_ACCOUNTS = []
-    AIRPORT_ACCOUNTS = []
-    JAVBUS_ACCOUNTS = []
-    
-    # 1. 优先: GitHub Actions 环境变量
-    if IS_GITHUB_ACTIONS:
-        log.info("检测到 GitHub Actions 环境，使用环境变量配置")
-        
-        # 使用标准化的账号加载函数
-        YUCHEN_ACCOUNTS = load_github_service_accounts('YuChen', 'YUCHEN_ACCOUNTS')
-        GLADOS_ACCOUNTS = load_github_service_accounts('GlaDos', 'GLADOS_ACCOUNTS')
-        AIRPORT_ACCOUNTS = load_github_service_accounts('AirPort', 'AIRPORT_ACCOUNTS')
-        JAVBUS_ACCOUNTS = load_github_service_accounts('JavBus', 'JAVBUS_ACCOUNTS')
-        
-        if YUCHEN_ACCOUNTS:
-            ACCOUNT['YuChen'] = YUCHEN_ACCOUNTS
-        if GLADOS_ACCOUNTS:
-            ACCOUNT['GlaDos'] = GLADOS_ACCOUNTS
-        if AIRPORT_ACCOUNTS:
-            ACCOUNT['AirPort'] = AIRPORT_ACCOUNTS
-        if JAVBUS_ACCOUNTS:
-            ACCOUNT['JavBus'] = JAVBUS_ACCOUNTS
-        
-        # 加载推送配置
-        push_env = os.environ.get('PUSH_CONFIG', '')
-        if push_env:
-            try:
-                PUSH = json.loads(push_env)
-            except json.JSONDecodeError:
-                log.warning("GitHub 环境变量 PUSH_CONFIG JSON 解析失败")
-        
-        # 加载 User-Agent
-        USER_AGENT = os.environ.get('USER_AGENT', '')
-        
-    else:
-        # 2. 加载服务配置 (新配置优先)
-        # 使用标准化账号加载函数
-        yuchen = load_service_accounts('YuChen', YUCHEN_CONFIG)
-        glados = load_service_accounts('GlaDos', GLADOS_CONFIG)
-        airport = load_service_accounts('AirPort', AIRPORT_CONFIG)
-        javbus = load_service_accounts('JavBus', JAVBUS_CONFIG)
-        
-        # 如果新配置存在则使用，否则尝试旧配置
-        if yuchen or glados or airport or javbus:
-            # 使用新配置
-            if yuchen:
-                ACCOUNT['YuChen'] = yuchen
-                YUCHEN_ACCOUNTS = yuchen
-            if glados:
-                ACCOUNT['GlaDos'] = glados
-                GLADOS_ACCOUNTS = glados
-            if airport:
-                ACCOUNT['AirPort'] = airport
-                AIRPORT_ACCOUNTS = airport
-            if javbus:
-                ACCOUNT['JavBus'] = javbus
-                JAVBUS_ACCOUNTS = javbus
-        elif os.path.exists(CONFIG_PATH):
-            # 回退到旧配置
-            try:
-                with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
-                    Conf = yaml.safe_load(f) or {}
-                    ACCOUNT = Conf.get('ACCOUNT', {})
-                    PUSH = Conf.get('PUSH', {})
-                    USER_AGENT = Conf.get('USER_AGENT', '')
-                    # 兼容旧结构
-                    YUCHEN_ACCOUNTS = ACCOUNT.get('YuChen', [])
-                    GLADOS_ACCOUNTS = ACCOUNT.get('GlaDos', [])
-                    AIRPORT_ACCOUNTS = ACCOUNT.get('AirPort', [])
-                    JAVBUS_ACCOUNTS = ACCOUNT.get('JavBus', [])
-            except Exception:
-                log.warning("旧配置文件加载失败")
-        else:
-            # 没有配置文件，提示用户
-            pass
-        
-        # 加载推送配置
-        PUSH = load_push_config()
-        
-        # 加载 User-Agent
-        USER_AGENT = get_user_agent()
-    
-    log.debug(f"已加载配置: YuChen={len(YUCHEN_ACCOUNTS)}, GlaDos={len(GLADOS_ACCOUNTS)}, AirPort={len(AIRPORT_ACCOUNTS)}, JavBus={len(JAVBUS_ACCOUNTS)}")
 
-
-def write_data() -> None:
-    """从备份文件生成配置文件"""
-    source = CONFIG_PATH_BAK
-    destination = CONFIG_PATH
-    try:
-        if os.path.exists(source):
-            shutil.copyfile(source, destination)
-            log.info(f"配置文件 {source} 已成功生成")
-        else:
-            log.info(f"配置文件备份 {source} 不存在。")
-    except Exception as e:
-        log.debug(f"发生错误: {e}")
-
-
-# 初始化配置
-if os.path.exists(CONFIG_PATH) or os.path.exists(YUCHEN_CONFIG):
-    load_all_configs()
-else:
-    write_data()
-    log.info("请填写配置文件后重新启动")
-    sys.exit()
-
-
-# ============ 向后兼容的导出 ============
-# 保持旧代码的兼容性，直接使用全局变量
-
-
-if __name__ == '__main__':
-    print("YuChen accounts:", YUCHEN_ACCOUNTS)
-    print("GlaDos accounts:", GLADOS_ACCOUNTS)
-    print("AirPort accounts:", AIRPORT_ACCOUNTS)
-    print("JavBus accounts:", JAVBUS_ACCOUNTS)
-    print("PUSH config:", PUSH)
-    print("USER_AGENT:", USER_AGENT)
+    accounts_by_service = {
+        service.name: load_service_accounts(service.name, service.config_filename, service.env_key)
+        for service in services
+    }
+    ACCOUNT = {service: accounts for service, accounts in accounts_by_service.items() if accounts}
+    PUSH = load_push_config()
+    USER_AGENT = os.environ.get("USER_AGENT") or PUSH.get("USER_AGENT", PUSH.get("user_agent", ""))
+    log.debug("已加载账号数: %s", {name: len(accounts) for name, accounts in accounts_by_service.items()})

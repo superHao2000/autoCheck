@@ -1,19 +1,18 @@
+"""JavBus 签到服务：使用登录 Cookie 调用站点签到地址。"""
+
 import requests
 
-from ..utils import log, config
+from utils import log, config
+
+
+# 自动发现服务时使用的元数据；文件名对应默认配置文件名。
+SERVICE_NAME = "JavBus"
+CONFIG_FILENAME = "javbus.json"
+ENV_KEY = "JAVBUS_ACCOUNTS"
 
 
 def checkin(url: str, cookies: str) -> dict:
-    """
-    JavBus 签到
-    
-    Args:
-        url: 站点地址
-        cookies: 登录 Cookie
-        
-    Returns:
-        签到结果字典
-    """
+    """携带 Cookie 请求 JavBus 签到接口，兼容 JSON 和文本响应。"""
     checkin_url = f"{url.rstrip('/')}/checkin"
     
     headers = {
@@ -27,6 +26,7 @@ def checkin(url: str, cookies: str) -> dict:
         response.encoding = 'utf-8'
         
         try:
+            # 首选接口的 JSON 状态；已签到同样视为本次任务成功。
             json_data = response.json()
             if json_data.get('success') is True:
                 return {'success': True, 'message': json_data.get('message', '签到成功')}
@@ -36,6 +36,7 @@ def checkin(url: str, cookies: str) -> dict:
                     return {'success': True, 'message': msg}
                 return {'success': False, 'message': msg or '签到失败'}
         except Exception:
+            # 部分镜像站返回文本页面，回退到关键字判断。
             text = response.text
             if '成功' in text or 'success' in text.lower():
                 return {'success': True, 'message': '签到成功'}
@@ -52,15 +53,7 @@ def checkin(url: str, cookies: str) -> dict:
 
 
 def run(accounts: list) -> dict:
-    """
-    运行签到任务
-    
-    Args:
-        accounts: 账号列表，每个账号应为包含 url, cookies 的字典
-        
-    Returns:
-        结果汇总
-    """
+    """逐账号执行 JavBus 签到；账号配置错误不会影响其他账号。"""
     results = {
         'total': len(accounts),
         'success': 0,
