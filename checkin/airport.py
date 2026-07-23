@@ -51,7 +51,7 @@ def checkin(base_url: str, email: str, password: str) -> dict:
                     pass
                 else:
                     return {'success': False, 'message': f'登录失败: {login_resp.text[:50]}'}
-        except Exception:
+        except requests.exceptions.JSONDecodeError:
             # 非 JSON 响应同样使用旧版文本特征判断。
             if '登录成功' in login_resp.text or login_resp.status_code == 302:
                 pass
@@ -70,7 +70,7 @@ def checkin(base_url: str, email: str, password: str) -> dict:
                 if '已签到' in msg:
                     return {'success': True, 'message': msg}
                 return {'success': False, 'message': msg or '签到失败'}
-        except Exception:
+        except requests.exceptions.JSONDecodeError:
             if '签到成功' in checkin_resp.text:
                 return {'success': True, 'message': '签到成功'}
             return {'success': False, 'message': f'签到失败: {checkin_resp.text[:50]}'}
@@ -79,8 +79,6 @@ def checkin(base_url: str, email: str, password: str) -> dict:
         return {'success': False, 'message': '请求超时'}
     except requests.exceptions.RequestException as e:
         return {'success': False, 'message': f'请求失败: {str(e)}'}
-    except Exception as e:
-        return {'success': False, 'message': f'未知错误: {str(e)}'}
 
 
 def run(accounts: list) -> dict:

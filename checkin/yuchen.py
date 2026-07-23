@@ -37,10 +37,10 @@ def checkin(url: str, username: str, password: str) -> dict:
                 json_data = response.json()
                 msg = json_data.get('message') or json_data.get('msg') or text[:50]
                 return {'success': json_data.get('ret') == 1 or json_data.get('success'), 'message': msg}
-            except Exception:
+            except requests.exceptions.JSONDecodeError:
                 return {'success': False, 'message': text[:50]}
                 
-    except Exception as e:
+    except requests.RequestException as e:
         return {'success': False, 'message': f'请求失败: {str(e)}'}
 
 

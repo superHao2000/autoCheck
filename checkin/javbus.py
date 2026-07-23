@@ -35,7 +35,7 @@ def checkin(url: str, cookies: str) -> dict:
                 if '已签到' in msg:
                     return {'success': True, 'message': msg}
                 return {'success': False, 'message': msg or '签到失败'}
-        except Exception:
+        except requests.exceptions.JSONDecodeError:
             # 部分镜像站返回文本页面，回退到关键字判断。
             text = response.text
             if '成功' in text or 'success' in text.lower():
@@ -48,8 +48,6 @@ def checkin(url: str, cookies: str) -> dict:
         return {'success': False, 'message': '请求超时'}
     except requests.exceptions.RequestException as e:
         return {'success': False, 'message': f'请求失败: {str(e)}'}
-    except Exception as e:
-        return {'success': False, 'message': f'未知错误: {str(e)}'}
 
 
 def run(accounts: list) -> dict:

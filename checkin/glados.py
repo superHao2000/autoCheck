@@ -43,10 +43,10 @@ def checkin(cookies: str) -> dict:
                 return {'success': True, 'message': message}
             else:
                 return {'success': False, 'message': message}
-        except Exception:
+        except requests.exceptions.JSONDecodeError:
             return {'success': False, 'message': f'解析失败: {response.text[:50]}'}
             
-    except Exception as e:
+    except requests.RequestException as e:
         return {'success': False, 'message': f'请求失败: {str(e)}'}
 
 

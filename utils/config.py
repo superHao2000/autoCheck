@@ -27,10 +27,6 @@ SERVICE_FIELD_MAPPING = {
 ACCOUNT: dict[str, list[dict[str, Any]]] = {}
 PUSH: dict[str, Any] = {}
 USER_AGENT = ""
-YUCHEN_ACCOUNTS: list[dict[str, Any]] = []
-GLADOS_ACCOUNTS: list[dict[str, Any]] = []
-AIRPORT_ACCOUNTS: list[dict[str, Any]] = []
-JAVBUS_ACCOUNTS: list[dict[str, Any]] = []
 
 
 def read_json(path: Path) -> Any:

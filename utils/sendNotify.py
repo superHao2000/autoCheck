@@ -7,7 +7,6 @@
 import base64
 import hashlib
 import hmac
-import json
 import time
 import urllib.parse
 
@@ -18,13 +17,6 @@ from utils.logger import log
 
 
 REQUEST_TIMEOUT = 15
-
-
-class Push:
-    """将字典形式的推送配置转换为属性形式的兼容包装。"""
-
-    def __init__(self, **values):
-        self.__dict__.update(values)
 
 
 def _value(name: str, default: str = "") -> str:
