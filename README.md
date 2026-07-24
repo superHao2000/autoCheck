@@ -4,12 +4,12 @@
 
 ## 支持的网站
 
-| 网站/服务 | 网站用途 | 本项目执行的操作 | 认证方式 |
-| --- | --- | --- | --- |
-| YuChen | 提供账号登录的 iOS 资源服务站点。 | 向配置的签到接口提交账号密码。 | 账号、密码与站点签到 URL |
-| GlaDos | 提供网络服务与用户账户管理的平台。 | 调用官方用户签到接口。 | 登录 Cookie |
-| AirPort | 泛指机场订阅服务面板；具体站点由用户自行填写。 | 登录面板后请求用户签到接口。 | 站点地址、邮箱、密码 |
-| JavBus | 影片资料检索网站。 | 向站点签到地址发送已登录会话。 | 站点地址与登录 Cookie |
+| 网站/服务 | 网站用途                                       | 本项目执行的操作               | 认证方式                 |
+| --------- | ---------------------------------------------- | ------------------------------ | ------------------------ |
+| YuChen    | 提供账号登录的 iOS 资源服务站点。              | 向配置的签到接口提交账号密码。 | 账号、密码与站点签到 URL |
+| GlaDos    | 提供网络服务与用户账户管理的平台。             | 调用官方用户签到接口。         | 登录 Cookie              |
+| AirPort   | 泛指机场订阅服务面板；具体站点由用户自行填写。 | 登录面板后请求用户签到接口。   | 站点地址、邮箱、密码     |
+| JavBus    | 影片资料检索网站。                             | 向站点签到地址发送已登录会话。 | 站点地址与登录 Cookie    |
 
 > 不同 AirPort 站点的接口实现可能不同；本项目当前适配 `/auth/login` 和 `/user/checkin` 路径。请仅对你有权使用的账户和站点执行签到。
 
@@ -59,14 +59,16 @@ Copy-Item config/services/yuchen.example.json config/services/yuchen.json
 
 其他服务的账号字段如下：
 
-| 服务 | 本地文件 | 必填字段 |
-| --- | --- | --- |
-| YuChen | `yuchen.json` | `url`、`username`、`password` |
-| GlaDos | `glados.json` | `cookies` |
+| 服务    | 本地文件         | 必填字段                              |
+| ------- | ---------------- | ------------------------------------- |
+| YuChen  | `yuchen.json`  | `url`、`username`、`password`   |
+| GlaDos  | `glados.json`  | `cookies`                           |
 | AirPort | `airport.json` | `base_url`、`email`、`password` |
-| JavBus | `javbus.json` | `url`、`cookies` |
+| JavBus  | `javbus.json`  | `url`、`cookies`                  |
 
 每个文件均支持多账号：将多个对象加入 `accounts` 数组即可。
+
+> 配置仅接受上表列出的标准字段名；`user`、`pass`、`cookie`、`site_url` 等旧字段不会自动转换，缺少标准字段的账号会被该服务跳过。
 
 ### 配置来源优先级
 
@@ -138,29 +140,25 @@ $env:RUN_LIVE_CHECKIN_TESTS = 'true'
 
 GitHub Actions 工作流每天 UTC 00:00 执行，也支持手动触发。请在仓库的 **Settings → Secrets and variables → Actions** 中配置账号，不要提交真实 JSON 文件。
 
-| Secret | 用途 |
-| --- | --- |
-| `YUCHEN_ACCOUNTS` | YuChen 账号数组 |
-| `GLADOS_ACCOUNTS` | GlaDos 账号数组 |
-| `AIRPORT_ACCOUNTS` | AirPort 账号数组 |
-| `JAVBUS_ACCOUNTS` | JavBus 账号数组 |
+| Secret                 | 用途                   |
+| ---------------------- | ---------------------- |
+| `YUCHEN_ACCOUNTS`    | YuChen 账号数组        |
+| `GLADOS_ACCOUNTS`    | GlaDos 账号数组        |
+| `AIRPORT_ACCOUNTS`   | AirPort 账号数组       |
+| `JAVBUS_ACCOUNTS`    | JavBus 账号数组        |
 | `AUTOCHECK_ACCOUNTS` | 任意服务的聚合账号对象 |
-| `PUSH_CONFIG` | 推送配置对象 |
-| `USER_AGENT` | 全局 User-Agent |
+| `PUSH_CONFIG`        | 推送配置对象           |
+| `USER_AGENT`         | 全局 User-Agent        |
 
 青龙同样可使用这些环境变量；未设置变量时程序会回退到本地 JSON 配置。
 
-## 新增服务
-
-无需修改 `main.py`：新增一个 `checkin/example.py` 和一个 `config/services/example.json` 即可。模块需要提供 `run(accounts)`，返回包含 `total`、`success`、`failed` 与 `details` 的字典。
-
-可选元数据：
+## 模块顶部还需导入：
 
 ```python
-SERVICE_NAME = "Example"
-CONFIG_FILENAME = "example.json"
-ENV_KEY = "EXAMPLE_ACCOUNTS"
+from utils.service_runner import run_accounts
 ```
+
+`run_accounts()` 会按 `ACCOUNT_FIELDS` 校验标准必填字段，单账号异常不会阻断后续账号。站点专属的 URL、请求、登录和响应判断应继续只放在 `checkin()` 中。
 
 ## 安全说明
 

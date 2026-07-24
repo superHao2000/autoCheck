@@ -2,13 +2,15 @@
 
 import requests
 
-from utils import log, config
+from utils import config
+from utils.service_runner import run_accounts
 
 
 # 自动发现服务时使用的元数据；文件名同时决定默认本地配置路径。
 SERVICE_NAME = "GlaDos"
 CONFIG_FILENAME = "glados.json"
 ENV_KEY = "GLADOS_ACCOUNTS"
+ACCOUNT_FIELDS = {"cookies": ("cookies",)}
 
 
 def checkin(cookies: str) -> dict:
@@ -51,39 +53,5 @@ def checkin(cookies: str) -> dict:
 
 
 def run(accounts: list) -> dict:
-    """逐账号执行 GlaDos 签到；空 Cookie 仅标记当前账号失败。"""
-    results = {
-        'total': len(accounts),
-        'success': 0,
-        'failed': 0,
-        'details': []
-    }
-    
-    for i, account in enumerate(accounts):
-        cookies = account.get('cookies', account.get('cookie', ''))
-        
-        if not cookies:
-            result = {
-                'username': f'账号{i+1}',
-                'success': False,
-                'message': '缺少 cookies 配置'
-            }
-            results['failed'] += 1
-            results['details'].append(result)
-            log.warning(f"GlaDos 账号 {i+1} 缺少 cookies，跳过")
-            continue
-        
-        log.info(f"GlaDos 开始签到账号 {i+1}")
-        result = checkin(cookies)
-        result['username'] = f'账号{i+1}'
-        
-        if result.get('success'):
-            results['success'] += 1
-            log.info(f"GlaDos 签到成功: 账号{i+1}")
-        else:
-            results['failed'] += 1
-            log.warning(f"GlaDos 签到失败: 账号{i+1} - {result.get('message', '未知错误')}")
-        
-        results['details'].append(result)
-    
-    return results
+    """使用公共执行器逐账号完成 GlaDos 签到。"""
+    return run_accounts(SERVICE_NAME, accounts, ACCOUNT_FIELDS, checkin)

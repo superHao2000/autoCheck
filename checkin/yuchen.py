@@ -2,13 +2,19 @@
 
 import requests
 
-from utils import log, config
+from utils import config
+from utils.service_runner import run_accounts
 
 
 # 自动发现服务时使用的元数据；新增服务可按此约定声明。
 SERVICE_NAME = "YuChen"
 CONFIG_FILENAME = "yuchen.json"
 ENV_KEY = "YUCHEN_ACCOUNTS"
+ACCOUNT_FIELDS = {
+    "url": ("url",),
+    "username": ("username",),
+    "password": ("password",),
+}
 
 
 def checkin(url: str, username: str, password: str) -> dict:
@@ -45,45 +51,5 @@ def checkin(url: str, username: str, password: str) -> dict:
 
 
 def run(accounts: list) -> dict:
-    """逐账号执行 YuChen 签到；配置或请求失败不影响后续账号。"""
-    results = {
-        'total': len(accounts),
-        'success': 0,
-        'failed': 0,
-        'details': []
-    }
-    
-    for i, account in enumerate(accounts):
-        # 同时兼容未经过配置标准化的旧字段。
-        url = account.get('url', '')
-        username = account.get('username', account.get('user', ''))
-        password = account.get('password', account.get('pass', ''))
-        
-        # 缺少凭据属于单账号配置错误，记录后继续处理下一账号。
-        if not url or not username or not password:
-            result = {
-                'username': username or f'账号{i+1}',
-                'success': False,
-                'message': '缺少必要配置 (url/username/password)'
-            }
-            results['failed'] += 1
-            results['details'].append(result)
-            log.warning(f"YuChen 账号 {username or i+1} 配置不完整，跳过")
-            continue
-        
-        # checkin 已将网络和响应解析错误转换为结果字典。
-        log.info(f"YuChen 开始签到: {username}")
-        result = checkin(url, username, password)
-        
-        # 每个账号均保存明细，供入口汇总和推送展示。
-        result['username'] = username
-        if result.get('success'):
-            results['success'] += 1
-            log.info(f"YuChen 签到成功: {username}")
-        else:
-            results['failed'] += 1
-            log.warning(f"YuChen 签到失败: {username} - {result.get('message', '未知错误')}")
-        
-        results['details'].append(result)
-    
-    return results
+    """使用公共执行器逐账号完成 YuChen 签到。"""
+    return run_accounts(SERVICE_NAME, accounts, ACCOUNT_FIELDS, checkin, "username")

@@ -2,13 +2,19 @@
 
 import requests
 
-from utils import log, config
+from utils import config
+from utils.service_runner import run_accounts
 
 
 # 自动发现服务时使用的元数据；可被新服务实现作为模板。
 SERVICE_NAME = "AirPort"
 CONFIG_FILENAME = "airport.json"
 ENV_KEY = "AIRPORT_ACCOUNTS"
+ACCOUNT_FIELDS = {
+    "base_url": ("base_url",),
+    "email": ("email",),
+    "password": ("password",),
+}
 
 
 def checkin(base_url: str, email: str, password: str) -> dict:
@@ -82,41 +88,5 @@ def checkin(base_url: str, email: str, password: str) -> dict:
 
 
 def run(accounts: list) -> dict:
-    """逐账号执行 AirPort 登录与签到，隔离每个账号的失败。"""
-    results = {
-        'total': len(accounts),
-        'success': 0,
-        'failed': 0,
-        'details': []
-    }
-    
-    for i, account in enumerate(accounts):
-        base_url = account.get('base_url', account.get('url', ''))
-        email = account.get('email', account.get('username', account.get('user', '')))
-        password = account.get('password', account.get('pass', ''))
-        
-        if not base_url or not email or not password:
-            result = {
-                'username': email or f'账号{i+1}',
-                'success': False,
-                'message': '缺少必要配置 (base_url/email/password)'
-            }
-            results['failed'] += 1
-            results['details'].append(result)
-            log.warning(f"AirPort 账号 {email or i+1} 配置不完整，跳过")
-            continue
-        
-        log.info(f"AirPort 开始签到: {email}")
-        result = checkin(base_url, email, password)
-        result['username'] = email
-        
-        if result.get('success'):
-            results['success'] += 1
-            log.info(f"AirPort 签到成功: {email}")
-        else:
-            results['failed'] += 1
-            log.warning(f"AirPort 签到失败: {email} - {result.get('message', '未知错误')}")
-        
-        results['details'].append(result)
-    
-    return results
+    """使用公共执行器逐账号完成 AirPort 登录与签到。"""
+    return run_accounts(SERVICE_NAME, accounts, ACCOUNT_FIELDS, checkin, "email")

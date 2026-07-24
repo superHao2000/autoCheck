@@ -2,13 +2,18 @@
 
 import requests
 
-from utils import log, config
+from utils import config
+from utils.service_runner import run_accounts
 
 
 # 自动发现服务时使用的元数据；文件名对应默认配置文件名。
 SERVICE_NAME = "JavBus"
 CONFIG_FILENAME = "javbus.json"
 ENV_KEY = "JAVBUS_ACCOUNTS"
+ACCOUNT_FIELDS = {
+    "url": ("url",),
+    "cookies": ("cookies",),
+}
 
 
 def checkin(url: str, cookies: str) -> dict:
@@ -51,40 +56,5 @@ def checkin(url: str, cookies: str) -> dict:
 
 
 def run(accounts: list) -> dict:
-    """逐账号执行 JavBus 签到；账号配置错误不会影响其他账号。"""
-    results = {
-        'total': len(accounts),
-        'success': 0,
-        'failed': 0,
-        'details': []
-    }
-    
-    for i, account in enumerate(accounts):
-        url = account.get('url', account.get('site_url', ''))
-        cookies = account.get('cookies', account.get('cookie', ''))
-        
-        if not url or not cookies:
-            result = {
-                'username': f'账号{i+1}',
-                'success': False,
-                'message': '缺少必要配置 (url/cookies)'
-            }
-            results['failed'] += 1
-            results['details'].append(result)
-            log.warning(f"JavBus 账号 {i+1} 配置不完整，跳过")
-            continue
-        
-        log.info(f"JavBus 开始签到账号 {i+1}")
-        result = checkin(url, cookies)
-        result['username'] = f'账号{i+1}'
-        
-        if result.get('success'):
-            results['success'] += 1
-            log.info(f"JavBus 签到成功: 账号{i+1}")
-        else:
-            results['failed'] += 1
-            log.warning(f"JavBus 签到失败: 账号{i+1} - {result.get('message', '未知错误')}")
-        
-        results['details'].append(result)
-    
-    return results
+    """使用公共执行器逐账号完成 JavBus 签到。"""
+    return run_accounts(SERVICE_NAME, accounts, ACCOUNT_FIELDS, checkin)

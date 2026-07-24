@@ -1,4 +1,4 @@
-"""配置优先级和字段标准化的离线测试。"""
+"""配置来源优先级和标准字段规则的离线测试。"""
 
 import os
 import unittest
@@ -8,12 +8,19 @@ from utils import config
 
 
 class ConfigLoadingTests(unittest.TestCase):
-    """验证环境变量、聚合变量与配置映射的加载规则。"""
+    """验证环境变量、聚合变量与标准字段的加载规则。"""
+
     def test_environment_accounts_take_priority_over_local_file(self):
-        with patch.dict(os.environ, {"YUCHEN_ACCOUNTS": '[{"url":"https://example.test","user":"alice","pass":"secret"}]'}, clear=False):
+        value = '[{"url":"https://example.test","username":"alice","password":"secret"}]'
+        with patch.dict(os.environ, {"YUCHEN_ACCOUNTS": value}, clear=False):
             accounts = config.load_service_accounts("YuChen", "yuchen.json", "YUCHEN_ACCOUNTS")
-        self.assertEqual(accounts[0]["username"], "alice")
-        self.assertEqual(accounts[0]["password"], "secret")
+        self.assertEqual(accounts, [{"url": "https://example.test", "username": "alice", "password": "secret"}])
+
+    def test_legacy_field_names_are_not_normalised(self):
+        accounts = config._accounts_from_value([{"user": "alice", "pass": "secret"}], "test")
+        self.assertEqual(accounts, [{"user": "alice", "pass": "secret"}])
+        self.assertNotIn("username", accounts[0])
+        self.assertNotIn("password", accounts[0])
 
     def test_invalid_environment_json_skips_only_the_service(self):
         with patch.dict(os.environ, {"GLADOS_ACCOUNTS": "not-json"}, clear=False):

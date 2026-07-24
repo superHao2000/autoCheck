@@ -14,15 +14,6 @@ SERVICE_CONFIG_DIR = ROOT_PATH / "config" / "services"
 PUSH_CONFIG = ROOT_PATH / "config" / "push.json"
 ACCOUNTS_BUNDLE_ENV_KEY = "AUTOCHECK_ACCOUNTS"
 
-# 兼容历史字段名；标准化后服务代码只读取规范字段。
-SERVICE_FIELD_MAPPING = {
-    "YuChen": {"url": ("url", "base_url", "domain"), "username": ("username", "user", "account"), "password": ("password", "pass", "pwd")},
-    "GlaDos": {"cookies": ("cookies", "cookie")},
-    "AirPort": {"base_url": ("base_url", "url", "site"), "email": ("email", "username", "user", "account"), "password": ("password", "pass", "pwd")},
-    "JavBus": {"url": ("url", "site_url", "domain"), "cookies": ("cookies", "cookie")},
-    "_common": {"user_agent": ("user_agent", "user-agent", "ua")},
-}
-
 # 以下值仅由 load_all_configs 显式刷新，不在模块导入时读取文件或退出进程。
 ACCOUNT: dict[str, list[dict[str, Any]]] = {}
 PUSH: dict[str, Any] = {}
@@ -40,20 +31,8 @@ def read_json(path: Path) -> Any:
         raise ValueError(f"配置文件格式错误: {path}") from exc
 
 
-def normalize_account(account: dict[str, Any], service: str) -> dict[str, Any]:
-    """保留原始字段，并为已知别名补充服务所需的规范字段。"""
-    normalized = dict(account)
-    mapping = {**SERVICE_FIELD_MAPPING["_common"], **SERVICE_FIELD_MAPPING.get(service, {})}
-    for canonical, aliases in mapping.items():
-        for alias in aliases:
-            if alias in account:
-                normalized[canonical] = account[alias]
-                break
-    return normalized
-
-
-def _accounts_from_value(value: Any, source: str, service: str) -> list[dict[str, Any]]:
-    """校验账号列表格式，过滤无效项并执行字段标准化。"""
+def _accounts_from_value(value: Any, source: str) -> list[dict[str, Any]]:
+    """校验账号列表格式，保留标准字段，不转换旧字段别名。"""
     if isinstance(value, dict):
         value = value.get("accounts", [])
     if value is None:
@@ -67,7 +46,8 @@ def _accounts_from_value(value: Any, source: str, service: str) -> list[dict[str
         if not isinstance(account, dict):
             log.warning("%s 第 %s 个账号不是对象，已跳过", source, index)
             continue
-        accounts.append(normalize_account(account, service))
+        # 仅复制原始对象；必填标准字段由对应服务验证。
+        accounts.append(dict(account))
     return accounts
 
 
@@ -88,15 +68,11 @@ def _load_accounts_bundle() -> dict[str, Any]:
 
 
 def load_service_accounts(service: str, filename: str, env_key: str) -> list[dict[str, Any]]:
-    """按单服务变量、聚合变量、本地 JSON 的顺序加载账号。
-
-    单服务环境变量内容非法时直接跳过该服务，避免在调度环境中意外回退到
-    机器上的旧凭据。
-    """
+    """按单服务变量、聚合变量、本地 JSON 的顺序加载标准字段账号。"""
     env_value = os.environ.get(env_key)
     if env_value:
         try:
-            return _accounts_from_value(json.loads(env_value), f"环境变量 {env_key}", service)
+            return _accounts_from_value(json.loads(env_value), f"环境变量 {env_key}")
         except json.JSONDecodeError:
             log.warning("环境变量 %s 不是有效 JSON，已跳过该服务", env_key)
             return []
@@ -106,16 +82,13 @@ def load_service_accounts(service: str, filename: str, env_key: str) -> list[dic
     bundle_keys = (Path(filename).stem, service, env_key)
     for bundle_key in bundle_keys:
         if bundle_key in bundle:
-            return _accounts_from_value(
-                bundle[bundle_key], f"环境变量 {ACCOUNTS_BUNDLE_ENV_KEY}.{bundle_key}", service
-            )
+            return _accounts_from_value(bundle[bundle_key], f"环境变量 {ACCOUNTS_BUNDLE_ENV_KEY}.{bundle_key}")
 
     # 仅加载真实 JSON；.example.json 仅用于复制模板，绝不作为运行期凭据。
     config_path = SERVICE_CONFIG_DIR / filename
     local_value = read_json(config_path)
     if local_value is not None:
-        return _accounts_from_value(local_value, str(config_path), service)
-
+        return _accounts_from_value(local_value, str(config_path))
     return []
 
 
@@ -136,12 +109,11 @@ def load_push_config() -> dict[str, Any]:
 def load_all_configs(services: list[Any]) -> None:
     """为已发现服务刷新运行期配置，不产生导入时副作用。"""
     global ACCOUNT, PUSH, USER_AGENT
-
     accounts_by_service = {
         service.name: load_service_accounts(service.name, service.config_filename, service.env_key)
         for service in services
     }
     ACCOUNT = {service: accounts for service, accounts in accounts_by_service.items() if accounts}
     PUSH = load_push_config()
-    USER_AGENT = os.environ.get("USER_AGENT") or PUSH.get("USER_AGENT", PUSH.get("user_agent", ""))
+    USER_AGENT = os.environ.get("USER_AGENT") or PUSH.get("USER_AGENT", "")
     log.debug("已加载账号数: %s", {name: len(accounts) for name, accounts in accounts_by_service.items()})
