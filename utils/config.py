@@ -15,6 +15,13 @@ PUSH_CONFIG = ROOT_PATH / "config" / "push.json"
 ACCOUNTS_BUNDLE_ENV_KEY = "AUTOCHECK_ACCOUNTS"
 # 仅为站点地址在同一账号组中固定的服务声明可继承字段；不提供字段别名。
 SERVICE_SHARED_FIELDS = {"YuChen": ("url",)}
+# 用于判断同一服务中的同一账号。字段值不会写入日志，避免泄露凭据。
+SERVICE_ACCOUNT_ID_FIELDS = {
+    "YuChen": ("url", "username"),
+    "GlaDos": ("cookies",),
+    "AirPort": ("base_url", "email"),
+    "JavBus": ("url", "cookies"),
+}
 
 # 以下值仅由 load_all_configs 显式刷新，不在模块导入时读取文件或退出进程。
 ACCOUNT: dict[str, list[dict[str, Any]]] = {}
@@ -76,29 +83,66 @@ def _load_accounts_bundle() -> dict[str, Any]:
     return value
 
 
+def _account_identity(service: str, account: dict[str, Any]) -> str:
+    """生成仅供内存比较的账号标识，不将标识或字段值输出到日志。"""
+    fields = SERVICE_ACCOUNT_ID_FIELDS.get(service)
+    if fields and all(account.get(field) for field in fields):
+        value = {field: account[field] for field in fields}
+    else:
+        # 未知服务或字段不完整时，使用完整对象，避免把不同的不完整配置误判为重复。
+        value = account
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, default=str)
+
+
+def _merge_accounts(
+    service: str, sources: list[tuple[str, list[dict[str, Any]]]],
+) -> list[dict[str, Any]]:
+    """按来源优先级合并账号，并跳过已由高优先级来源提供的重复账号。"""
+    accounts: list[dict[str, Any]] = []
+    identities: set[str] = set()
+    for source, source_accounts in sources:
+        for account in source_accounts:
+            identity = _account_identity(service, account)
+            if identity in identities:
+                log.info("%s 检测到重复账号，已跳过来自 %s 的低优先级配置", service, source)
+                continue
+            identities.add(identity)
+            accounts.append(account)
+    return accounts
+
+
 def load_service_accounts(service: str, filename: str, env_key: str) -> list[dict[str, Any]]:
-    """按单服务变量、聚合变量、本地 JSON 的顺序加载标准字段账号。"""
+    """合并三类账号来源；高优先级账号优先，重复账号只保留一次。"""
+    sources: list[tuple[str, list[dict[str, Any]]]] = []
+
     env_value = os.environ.get(env_key)
     if env_value:
         try:
-            return _accounts_from_value(json.loads(env_value), f"环境变量 {env_key}", service)
+            source = f"环境变量 {env_key}"
+            sources.append((source, _accounts_from_value(json.loads(env_value), source, service)))
         except json.JSONDecodeError:
-            log.warning("环境变量 %s 不是有效 JSON，已跳过该服务", env_key)
-            return []
+            log.warning("环境变量 %s 不是有效 JSON，已跳过该来源", env_key)
 
     bundle = _load_accounts_bundle()
     # 聚合配置优先使用模块名，也兼容显示名和单服务环境变量名。
     bundle_keys = (Path(filename).stem, service, env_key)
     for bundle_key in bundle_keys:
         if bundle_key in bundle:
-            return _accounts_from_value(bundle[bundle_key], f"环境变量 {ACCOUNTS_BUNDLE_ENV_KEY}.{bundle_key}", service)
+            source = f"环境变量 {ACCOUNTS_BUNDLE_ENV_KEY}.{bundle_key}"
+            sources.append((source, _accounts_from_value(bundle[bundle_key], source, service)))
+            break
 
     # 仅加载真实 JSON；.example.json 仅用于复制模板，绝不作为运行期凭据。
     config_path = SERVICE_CONFIG_DIR / filename
-    local_value = read_json(config_path)
-    if local_value is not None:
-        return _accounts_from_value(local_value, str(config_path), service)
-    return []
+    try:
+        local_value = read_json(config_path)
+    except ValueError as exc:
+        # 本地文件损坏不应使可用的环境变量账号失效。
+        log.warning("%s 配置加载失败，已跳过该来源：%s", service, exc)
+    else:
+        if local_value is not None:
+            sources.append((str(config_path), _accounts_from_value(local_value, str(config_path), service)))
+    return _merge_accounts(service, sources)
 
 
 def load_local_service_accounts(service: str, filename: str) -> list[dict[str, Any]]:
