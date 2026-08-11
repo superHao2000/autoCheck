@@ -6,32 +6,61 @@ from unittest.mock import MagicMock, patch
 import requests
 
 from checkin import yuchen
-from tests.live_helpers import LIVE_TESTS_ENABLED, configured_accounts
+from tests.live_helpers import run_configured_service
 
 
 class YuChenUnitTests(unittest.TestCase):
     """使用 Mock 验证 YuChen 请求和异常转换，不访问网络。"""
-    @patch("checkin.yuchen.requests.post")
-    def test_checkin_success(self, post):
-        response = MagicMock(text='{"success": true}')
-        response.json.return_value = {"success": True}
-        post.return_value = response
+    @patch("checkin.yuchen.requests.Session")
+    def test_checkin_success(self, session_class):
+        session = session_class.return_value
+        session.get.side_effect = [
+            MagicMock(text='<script>var chenxing = {"ajax_url":"https://yuchen.example/ajax"};</script><input name="token" value="token">'),
+            MagicMock(text='您目前可用积分： 495 积分变更记录 每日签到赠送2积分'),
+        ]
+        login_response = MagicMock()
+        login_response.json.return_value = {"success": "success", "msg": "登录成功"}
+        sign_response = MagicMock()
+        sign_response.json.return_value = {"success": "success", "msg": "签到成功"}
+        session.post.side_effect = [login_response, sign_response]
 
-        result = yuchen.checkin("https://yuchen.example/checkin", "alice", "secret")
+        result = yuchen.checkin("https://yuchen.example", "alice", "secret")
 
         self.assertTrue(result["success"])
-        post.assert_called_once()
+        self.assertEqual(session.post.call_count, 2)
+        self.assertIn("本次获得 2 积分", result["message"])
+        self.assertIn("当前可用积分 495", result["message"])
 
-    @patch("checkin.yuchen.requests.post", side_effect=requests.RequestException("offline"))
-    def test_request_error_is_returned(self, _post):
+    @patch("checkin.yuchen.requests.Session")
+    def test_request_error_is_returned(self, session_class):
+        session_class.return_value.get.side_effect = requests.RequestException("offline")
         self.assertFalse(yuchen.checkin("https://yuchen.example", "alice", "secret")["success"])
 
+    @patch("checkin.yuchen.requests.Session")
+    def test_page_without_login_metadata_is_rejected(self, session_class):
+        session_class.return_value.get.return_value = MagicMock(text="<!doctype html><html>success 签到成功</html>")
 
-@unittest.skipUnless(LIVE_TESTS_ENABLED, "set RUN_LIVE_CHECKIN_TESTS=true to use configured YuChen accounts")
-class YuChenLiveTests(unittest.TestCase):
-    """使用用户填写的 YuChen 配置执行一次真实签到。"""
-    def test_configured_accounts(self):
-        accounts = configured_accounts(yuchen)
-        self.assertTrue(accounts, "请填写 config/services/yuchen.json 或 YUCHEN_ACCOUNTS")
-        result = yuchen.run(accounts)
-        self.assertEqual(result["failed"], 0, result["details"])
+        result = yuchen.checkin("https://yuchen.example", "alice", "secret")
+
+        self.assertFalse(result["success"])
+        self.assertIn("登录接口", result["message"])
+
+    @patch("checkin.yuchen.requests.Session")
+    def test_login_error_message_is_sanitised(self, session_class):
+        session = session_class.return_value
+        session.get.return_value = MagicMock(
+            text='<script>var chenxing = {"ajax_url":"https://yuchen.example/ajax"};</script><input name="token" value="token">'
+        )
+        response = MagicMock()
+        response.json.return_value = {"success": "error", "msg": '<strong>错误：</strong>用户名alice未注册'}
+        session.post.return_value = response
+
+        result = yuchen.checkin("https://yuchen.example", "alice", "secret")
+
+        self.assertFalse(result["success"])
+        self.assertNotIn("alice", result["message"])
+        self.assertNotIn("<strong>", result["message"])
+
+
+if __name__ == "__main__":
+    raise SystemExit(run_configured_service(yuchen))
