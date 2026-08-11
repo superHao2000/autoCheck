@@ -10,10 +10,7 @@ from utils.service_runner import run_accounts
 SERVICE_NAME = "JavBus"
 CONFIG_FILENAME = "javbus.json"
 ENV_KEY = "JAVBUS_ACCOUNTS"
-ACCOUNT_FIELDS = {
-    "url": ("url",),
-    "cookies": ("cookies",),
-}
+ACCOUNT_FIELDS = ("url", "cookies")
 
 
 def checkin(url: str, cookies: str) -> dict:

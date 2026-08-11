@@ -1,21 +1,18 @@
 """多账号签到服务的公共执行器。"""
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Collection, Mapping
 from typing import Any
 
 from utils import log
 
 
-AccountFields = Mapping[str, tuple[str, ...]]
+AccountFields = Collection[str]
 CheckinFunction = Callable[..., dict[str, Any]]
 
 
-def _normalise_account(account: Mapping[str, Any], fields: AccountFields) -> dict[str, Any]:
-    """按字段别名读取账号配置，返回供站点 ``checkin`` 使用的规范字段。"""
-    return {
-        name: next((account.get(alias) for alias in aliases if account.get(alias)), "")
-        for name, aliases in fields.items()
-    }
+def _standard_account(account: Mapping[str, Any], fields: AccountFields) -> dict[str, Any]:
+    """只读取标准字段，返回供站点 ``checkin`` 使用的参数字典。"""
+    return {name: account.get(name, "") for name in fields}
 
 
 def run_accounts(
@@ -27,13 +24,13 @@ def run_accounts(
 ) -> dict[str, Any]:
     """逐账号执行签到，并保证配置或单账号错误不会影响其他账号。
 
-    ``fields`` 的键是 ``checkin`` 的参数名，值是依次尝试读取的配置字段别名。
+    ``fields`` 是 ``checkin`` 所需的标准配置字段名集合，不接受字段别名。
     """
     results: dict[str, Any] = {"total": len(accounts), "success": 0, "failed": 0, "details": []}
-    required_names = "/".join(fields)
+    required_names = "/".join(sorted(fields))
 
     for index, account in enumerate(accounts, start=1):
-        values = _normalise_account(account, fields)
+        values = _standard_account(account, fields)
         display_name = values.get(display_field, "") if display_field else ""
         display_name = display_name or f"账号{index}"
         if not all(values.values()):

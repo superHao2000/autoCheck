@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import requests
 
 from checkin import javbus
-from tests.live_helpers import LIVE_TESTS_ENABLED, configured_accounts
+from tests.live_helpers import run_configured_service
 
 
 class JavBusUnitTests(unittest.TestCase):
@@ -27,11 +27,5 @@ class JavBusUnitTests(unittest.TestCase):
         self.assertEqual(result["message"], "请求超时")
 
 
-@unittest.skipUnless(LIVE_TESTS_ENABLED, "set RUN_LIVE_CHECKIN_TESTS=true to use configured JavBus accounts")
-class JavBusLiveTests(unittest.TestCase):
-    """使用用户填写的 JavBus Cookie 执行一次真实签到。"""
-    def test_configured_accounts(self):
-        accounts = configured_accounts(javbus)
-        self.assertTrue(accounts, "请填写 config/services/javbus.json 或 JAVBUS_ACCOUNTS")
-        result = javbus.run(accounts)
-        self.assertEqual(result["failed"], 0, result["details"])
+if __name__ == "__main__":
+    raise SystemExit(run_configured_service(javbus))

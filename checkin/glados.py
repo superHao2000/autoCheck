@@ -10,7 +10,7 @@ from utils.service_runner import run_accounts
 SERVICE_NAME = "GlaDos"
 CONFIG_FILENAME = "glados.json"
 ENV_KEY = "GLADOS_ACCOUNTS"
-ACCOUNT_FIELDS = {"cookies": ("cookies",)}
+ACCOUNT_FIELDS = ("cookies",)
 
 
 def checkin(cookies: str) -> dict:
@@ -36,12 +36,9 @@ def checkin(cookies: str) -> dict:
             message = json_data.get('message', '')
             
             # 不同接口版本可能仅通过 code 或消息文本标识成功。
-            if code == 0 or 'Checkin' in message or '签到' in message:
-                msg = message
-                if 'Left days' in message or '剩余' in message:
-                    msg = message
-                return {'success': True, 'message': msg or '签到成功'}
-            elif 'already' in message.lower() or '已签到' in message:
+            if code == 0:
+                return {'success': True, 'message': message or '签到成功'}
+            elif 'already checked' in message.lower() or '已签到' in message:
                 return {'success': True, 'message': message}
             else:
                 return {'success': False, 'message': message}

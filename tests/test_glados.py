@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import requests
 
 from checkin import glados
-from tests.live_helpers import LIVE_TESTS_ENABLED, configured_accounts
+from tests.live_helpers import run_configured_service
 
 
 class GlaDosUnitTests(unittest.TestCase):
@@ -23,12 +23,14 @@ class GlaDosUnitTests(unittest.TestCase):
     def test_request_error_is_returned(self, _post):
         self.assertFalse(glados.checkin("session=test")["success"])
 
+    @patch("checkin.glados.requests.post")
+    def test_checkin_failure_message_is_not_treated_as_success(self, post):
+        response = MagicMock(text="")
+        response.json.return_value = {"code": 1, "message": "签到失败"}
+        post.return_value = response
 
-@unittest.skipUnless(LIVE_TESTS_ENABLED, "set RUN_LIVE_CHECKIN_TESTS=true to use configured GlaDos accounts")
-class GlaDosLiveTests(unittest.TestCase):
-    """使用用户填写的 GlaDos Cookie 执行一次真实签到。"""
-    def test_configured_accounts(self):
-        accounts = configured_accounts(glados)
-        self.assertTrue(accounts, "请填写 config/services/glados.json 或 GLADOS_ACCOUNTS")
-        result = glados.run(accounts)
-        self.assertEqual(result["failed"], 0, result["details"])
+        self.assertFalse(glados.checkin("session=test")["success"])
+
+
+if __name__ == "__main__":
+    raise SystemExit(run_configured_service(glados))

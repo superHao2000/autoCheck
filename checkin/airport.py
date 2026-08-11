@@ -10,11 +10,7 @@ from utils.service_runner import run_accounts
 SERVICE_NAME = "AirPort"
 CONFIG_FILENAME = "airport.json"
 ENV_KEY = "AIRPORT_ACCOUNTS"
-ACCOUNT_FIELDS = {
-    "base_url": ("base_url",),
-    "email": ("email",),
-    "password": ("password",),
-}
+ACCOUNT_FIELDS = ("base_url", "email", "password")
 
 
 def checkin(base_url: str, email: str, password: str) -> dict:

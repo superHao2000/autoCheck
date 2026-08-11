@@ -13,6 +13,8 @@ ROOT_PATH = Path(__file__).resolve().parents[1]
 SERVICE_CONFIG_DIR = ROOT_PATH / "config" / "services"
 PUSH_CONFIG = ROOT_PATH / "config" / "push.json"
 ACCOUNTS_BUNDLE_ENV_KEY = "AUTOCHECK_ACCOUNTS"
+# 仅为站点地址在同一账号组中固定的服务声明可继承字段；不提供字段别名。
+SERVICE_SHARED_FIELDS = {"YuChen": ("url",)}
 
 # 以下值仅由 load_all_configs 显式刷新，不在模块导入时读取文件或退出进程。
 ACCOUNT: dict[str, list[dict[str, Any]]] = {}
@@ -31,9 +33,16 @@ def read_json(path: Path) -> Any:
         raise ValueError(f"配置文件格式错误: {path}") from exc
 
 
-def _accounts_from_value(value: Any, source: str) -> list[dict[str, Any]]:
-    """校验账号列表格式，保留标准字段，不转换旧字段别名。"""
+def _accounts_from_value(value: Any, source: str, service: str) -> list[dict[str, Any]]:
+    """校验账号列表格式，并为指定服务合并顶层标准共享字段。"""
+    shared_fields: dict[str, Any] = {}
     if isinstance(value, dict):
+        # YuChen 的站点地址可放在顶层；账号对象的同名字段优先级更高。
+        shared_fields = {
+            field: value[field]
+            for field in SERVICE_SHARED_FIELDS.get(service, ())
+            if value.get(field)
+        }
         value = value.get("accounts", [])
     if value is None:
         return []
@@ -46,8 +55,8 @@ def _accounts_from_value(value: Any, source: str) -> list[dict[str, Any]]:
         if not isinstance(account, dict):
             log.warning("%s 第 %s 个账号不是对象，已跳过", source, index)
             continue
-        # 仅复制原始对象；必填标准字段由对应服务验证。
-        accounts.append(dict(account))
+        # 仅合并已声明的标准共享字段；必填字段仍由对应服务验证。
+        accounts.append({**shared_fields, **account})
     return accounts
 
 
@@ -72,7 +81,7 @@ def load_service_accounts(service: str, filename: str, env_key: str) -> list[dic
     env_value = os.environ.get(env_key)
     if env_value:
         try:
-            return _accounts_from_value(json.loads(env_value), f"环境变量 {env_key}")
+            return _accounts_from_value(json.loads(env_value), f"环境变量 {env_key}", service)
         except json.JSONDecodeError:
             log.warning("环境变量 %s 不是有效 JSON，已跳过该服务", env_key)
             return []
@@ -82,14 +91,24 @@ def load_service_accounts(service: str, filename: str, env_key: str) -> list[dic
     bundle_keys = (Path(filename).stem, service, env_key)
     for bundle_key in bundle_keys:
         if bundle_key in bundle:
-            return _accounts_from_value(bundle[bundle_key], f"环境变量 {ACCOUNTS_BUNDLE_ENV_KEY}.{bundle_key}")
+            return _accounts_from_value(bundle[bundle_key], f"环境变量 {ACCOUNTS_BUNDLE_ENV_KEY}.{bundle_key}", service)
 
     # 仅加载真实 JSON；.example.json 仅用于复制模板，绝不作为运行期凭据。
     config_path = SERVICE_CONFIG_DIR / filename
     local_value = read_json(config_path)
     if local_value is not None:
-        return _accounts_from_value(local_value, str(config_path))
+        return _accounts_from_value(local_value, str(config_path), service)
     return []
+
+
+def load_local_service_accounts(service: str, filename: str) -> list[dict[str, Any]]:
+    """只从指定本地 JSON 文件加载账号，供真实测试使用。
+
+    此函数刻意不读取环境变量，确保手动测试不会误用 CI 或青龙的账号。
+    """
+    config_path = SERVICE_CONFIG_DIR / filename
+    local_value = read_json(config_path)
+    return _accounts_from_value(local_value, str(config_path), service) if local_value is not None else []
 
 
 def load_push_config() -> dict[str, Any]:
@@ -106,14 +125,24 @@ def load_push_config() -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
-def load_all_configs(services: list[Any]) -> None:
-    """为已发现服务刷新运行期配置，不产生导入时副作用。"""
+def load_all_configs(services: list[Any], local_only: bool = False) -> None:
+    """为已发现服务刷新运行期配置，并隔离单个服务的配置错误。"""
     global ACCOUNT, PUSH, USER_AGENT
-    accounts_by_service = {
-        service.name: load_service_accounts(service.name, service.config_filename, service.env_key)
-        for service in services
-    }
+
+    accounts_by_service: dict[str, list[dict[str, Any]]] = {}
+    for service in services:
+        try:
+            if local_only:
+                accounts = load_local_service_accounts(service.name, service.config_filename)
+            else:
+                accounts = load_service_accounts(service.name, service.config_filename, service.env_key)
+        except ValueError as exc:
+            # 格式错误只影响当前服务，其他已配置服务仍可继续运行。
+            log.error("%s 配置加载失败，已跳过：%s", service.name, exc)
+            accounts = []
+        accounts_by_service[service.name] = accounts
+
     ACCOUNT = {service: accounts for service, accounts in accounts_by_service.items() if accounts}
-    PUSH = load_push_config()
-    USER_AGENT = os.environ.get("USER_AGENT") or PUSH.get("USER_AGENT", "")
+    PUSH = {} if local_only else load_push_config()
+    USER_AGENT = "" if local_only else os.environ.get("USER_AGENT") or PUSH.get("USER_AGENT", "")
     log.debug("已加载账号数: %s", {name: len(accounts) for name, accounts in accounts_by_service.items()})

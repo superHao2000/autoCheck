@@ -1,21 +1,23 @@
-"""真实签到测试的公共支持：只有显式开关开启时才会访问网站。"""
-
-import os
-from types import SimpleNamespace
+"""真实签到测试的公共支持：只读取本地 JSON 配置。"""
 
 from utils import config
 
 
-# 默认关闭真实请求，避免常规 unittest 执行时消耗签到机会。
-LIVE_TESTS_ENABLED = os.environ.get("RUN_LIVE_CHECKIN_TESTS", "").lower() == "true"
-
-
 def configured_accounts(module):
-    """按生产程序相同优先级加载指定服务的环境变量或 JSON 配置。"""
-    service = SimpleNamespace(
-        name=module.SERVICE_NAME,
-        config_filename=module.CONFIG_FILENAME,
-        env_key=module.ENV_KEY,
-    )
-    config.load_all_configs([service])
-    return config.ACCOUNT.get(service.name, [])
+    """只从当前服务对应的本地 JSON 文件读取账号。"""
+    return config.load_local_service_accounts(module.SERVICE_NAME, module.CONFIG_FILENAME)
+
+
+def run_configured_service(module) -> int:
+    """执行单个服务的本地真实测试，不读取环境变量也不发送通知。"""
+    try:
+        accounts = configured_accounts(module)
+    except ValueError as exc:
+        print(f"{module.SERVICE_NAME} 配置错误：{exc}")
+        return 1
+    if not accounts:
+        print(f"请填写 config/services/{module.CONFIG_FILENAME}")
+        return 1
+    result = module.run(accounts)
+    print(f"{module.SERVICE_NAME}: 成功 {result['success']}/{result['total']}")
+    return 0 if result["failed"] == 0 else 1

@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from checkin import airport
-from tests.live_helpers import LIVE_TESTS_ENABLED, configured_accounts
+from tests.live_helpers import run_configured_service
 
 
 def response(data):
@@ -35,11 +35,5 @@ class AirPortUnitTests(unittest.TestCase):
         self.assertEqual(session.post.call_count, 1)
 
 
-@unittest.skipUnless(LIVE_TESTS_ENABLED, "set RUN_LIVE_CHECKIN_TESTS=true to use configured AirPort accounts")
-class AirPortLiveTests(unittest.TestCase):
-    """使用用户填写的 AirPort 配置执行一次真实登录与签到。"""
-    def test_configured_accounts(self):
-        accounts = configured_accounts(airport)
-        self.assertTrue(accounts, "请填写 config/services/airport.json 或 AIRPORT_ACCOUNTS")
-        result = airport.run(accounts)
-        self.assertEqual(result["failed"], 0, result["details"])
+if __name__ == "__main__":
+    raise SystemExit(run_configured_service(airport))

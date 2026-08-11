@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """程序入口：自动发现签到服务，独立执行并汇总结果。"""
 
+import argparse
 import importlib
 import pkgutil
 import signal
@@ -45,6 +46,7 @@ def discover_services() -> list[Service]:
     import checkin
 
     services = []
+    service_names: set[str] = set()
     for module_info in pkgutil.iter_modules(checkin.__path__):
         if module_info.name.startswith("_"):
             continue
@@ -59,6 +61,10 @@ def discover_services() -> list[Service]:
             # 保留故障模块，使其在运行阶段单独报错而不阻断其他服务。
             log.exception("发现签到模块 %s 时出错", module_name)
             name, filename, env_key = module_info.name, f"{module_info.name}.json", default_env_key
+        if name in service_names:
+            log.error("签到服务名称重复：%s，已跳过模块 %s", name, module_name)
+            continue
+        service_names.add(name)
         services.append(Service(name, module_name, filename, env_key))
     return services
 
@@ -73,9 +79,9 @@ def run_task(service: Service, accounts: list[dict]) -> dict:
     try:
         task_func: Callable[[list[dict]], dict] = importlib.import_module(service.module).run
         result = task_func(accounts)
-        if not isinstance(result, dict):
-            # 强制服务模块遵守统一结果协议，便于汇总和通知。
-            raise TypeError("服务 run() 必须返回字典")
+        if not is_valid_result(result, len(accounts)):
+            # 强制服务模块遵守统一结果协议，避免错误结果被汇总为成功。
+            raise TypeError("服务 run() 必须返回完整且有效的结果字典")
     except Exception as exc:
         log.exception("%s 任务异常", service.name)
         result = {"total": len(accounts), "success": 0, "failed": len(accounts), "details": [{"success": False, "message": str(exc)}]}
@@ -85,11 +91,31 @@ def run_task(service: Service, accounts: list[dict]) -> dict:
     return result
 
 
-def main() -> int:
+def is_valid_result(result: object, expected_total: int) -> bool:
+    """校验服务结果结构，避免空字典等无效结果被误判为成功。"""
+    if not isinstance(result, dict):
+        return False
+    required = ("total", "success", "failed", "details")
+    if not all(key in result for key in required):
+        return False
+    total, success, failed = result["total"], result["success"], result["failed"]
+    return (
+        isinstance(total, int)
+        and isinstance(success, int)
+        and isinstance(failed, int)
+        and isinstance(result["details"], list)
+        and total == expected_total
+        and success >= 0
+        and failed >= 0
+        and success + failed == total
+    )
+
+
+def main(local_only: bool = False, notify: bool = True) -> int:
     """加载配置、依次执行已发现服务，并返回适合调度器的退出码。"""
     log.info("========== AutoCheck 开始 ==========")
     services = discover_services()
-    config.load_all_configs(services)
+    config.load_all_configs(services, local_only=local_only)
     SUMMARY.clear()
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
@@ -101,7 +127,8 @@ def main() -> int:
     total_success = sum(item.get("success", 0) for item in SUMMARY.values())
     total_failed = sum(item.get("failed", 0) for item in SUMMARY.values())
     log.info("========== 签到汇总：成功 %s，失败 %s ==========", total_success, total_failed)
-    send_notification()
+    if notify:
+        send_notification()
     return 0 if total_failed == 0 else 1
 
 
@@ -122,4 +149,8 @@ def send_notification() -> None:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    parser = argparse.ArgumentParser(description="执行 AutoCheck 签到任务")
+    parser.add_argument("--local-only", action="store_true", help="只读取本地 JSON 配置，不读取环境变量")
+    parser.add_argument("--no-notify", action="store_true", help="不发送汇总通知")
+    arguments = parser.parse_args()
+    raise SystemExit(main(local_only=arguments.local_only, notify=not (arguments.no_notify or arguments.local_only)))
