@@ -10,7 +10,7 @@ from utils.logger import log
 
 # 所有配置路径均相对项目根目录计算，避免依赖启动时的工作目录。
 ROOT_PATH = Path(__file__).resolve().parents[1]
-SERVICE_CONFIG_DIR = ROOT_PATH / "config" / "services"
+SERVICE_CONFIG_DIR = ROOT_PATH / "config"
 PUSH_CONFIG = ROOT_PATH / "config" / "push.json"
 ACCOUNTS_BUNDLE_ENV_KEY = "AUTOCHECK_ACCOUNTS"
 # 仅为站点地址在同一账号组中固定的服务声明可继承字段；不提供字段别名。
@@ -132,7 +132,7 @@ def load_service_accounts(service: str, filename: str, env_key: str) -> list[dic
             sources.append((source, _accounts_from_value(bundle[bundle_key], source, service)))
             break
 
-    # 仅加载真实 JSON；.example.json 仅用于复制模板，绝不作为运行期凭据。
+    # 仅加载 config 根目录的真实 JSON；services 中的模板绝不作为运行期凭据。
     config_path = SERVICE_CONFIG_DIR / filename
     try:
         local_value = read_json(config_path)

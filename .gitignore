@@ -23,9 +23,7 @@ test.py
 # 真实账号、Cookie、推送凭据和历史备份只保留在本地。
 config.json
 config.json.bak
-config/push.json
-config/services/*.json
+config/*.json
 
 # 仅提交无凭据示例，方便其他使用者复制后填写自己的本地配置。
-!config/push.example.json
 !config/services/*.example.json

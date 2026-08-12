@@ -2,7 +2,7 @@
   "url": "https://railgun.info",
   "accounts": [
     {
-      "cookies": ""
+      "cookies": "your_cookie_value"
     }
   ]
 }

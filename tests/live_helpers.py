@@ -16,7 +16,7 @@ def run_configured_service(module) -> int:
         print(f"{module.SERVICE_NAME} 配置错误：{exc}")
         return 1
     if not accounts:
-        print(f"请填写 config/services/{module.CONFIG_FILENAME}")
+        print(f"请填写 config/{module.CONFIG_FILENAME}")
         return 1
     result = module.run(accounts)
     print(f"{module.SERVICE_NAME}: 成功 {result['success']}/{result['total']}")

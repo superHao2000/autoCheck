@@ -32,18 +32,20 @@ py -m venv .venv
 
 ```text
 config/
-├── push.example.json
+├── <服务>.json                 # 本地真实配置，Git 忽略
+├── push.json                   # 本地真实推送配置，Git 忽略
 └── services/
     ├── yuchen.example.json
     ├── glados.example.json
     ├── airport.example.json
     └── javbus.example.json
+    └── push.example.json
 ```
 
 先复制需要的模板，再填写本地账号。例如 YuChen：
 
 ```powershell
-Copy-Item config/services/yuchen.example.json config/services/yuchen.json
+Copy-Item config/services/yuchen.example.json config/yuchen.json
 ```
 
 ```json
@@ -62,10 +64,10 @@ Copy-Item config/services/yuchen.example.json config/services/yuchen.json
 
 | 服务    | 本地文件         | 必填字段                              |
 | ------- | ---------------- | ------------------------------------- |
-| YuChen  | `yuchen.json`  | `url`、`username`、`password`   |
-| GlaDos  | `glados.json`  | `url`、`cookies`                    |
-| AirPort | `airport.json` | `base_url`、`email`、`password` |
-| JavBus  | `javbus.json`  | `url`、`cookies`                  |
+| YuChen  | `config/yuchen.json`  | `url`、`username`、`password`   |
+| GlaDos  | `config/glados.json`  | `url`、`cookies`                    |
+| AirPort | `config/airport.json` | `base_url`、`email`、`password` |
+| JavBus  | `config/javbus.json`  | `url`、`cookies`                  |
 
 每个文件均支持多账号：将多个对象加入 `accounts` 数组即可。
 
@@ -81,7 +83,7 @@ GlaDos 的多个账号同样可将 `url` 写在顶层（例如 `https://railgun.
 
 1. 单服务环境变量，例如 `YUCHEN_ACCOUNTS`（最高优先级）；
 2. 聚合环境变量 `AUTOCHECK_ACCOUNTS`；
-3. 本地 `config/services/<服务>.json`（最低优先级）。
+3. 本地 `config/<服务>.json`（最低优先级）。
 
 同一服务的账号会按上述顺序保留；重复账号只保留优先级更高的一项，日志会提示检测到重复账号，但不会输出账号或凭据。三个来源都没有有效账号时，服务才会被跳过。
 
@@ -110,10 +112,10 @@ GlaDos 的多个账号同样可将 `url` 写在顶层（例如 `https://railgun.
 
 ### 推送配置（可选）
 
-复制 `config/push.example.json` 为 `config/push.json` 后可配置通知。支持 Bark、Telegram、钉钉、PushPlus、企业微信与飞书。未配置任何渠道时不会发送通知。
+复制 `config/services/push.example.json` 为 `config/push.json` 后可配置通知。支持 Bark、Telegram、钉钉、PushPlus、企业微信与飞书。未配置任何渠道时不会发送通知。
 
 ```powershell
-Copy-Item config/push.example.json config/push.json
+Copy-Item config/services/push.example.json config/push.json
 ```
 
 也可在调度器中使用 `PUSH_CONFIG` 环境变量传入同样的 JSON 对象。
@@ -186,11 +188,11 @@ def run(accounts: list) -> dict:
     return run_accounts(SERVICE_NAME, accounts, ACCOUNT_FIELDS, checkin)
 ```
 
-再添加 `config/services/example.example.json` 模板，并为该服务补充独立离线测试。真实 `example.json` 会被现有 Git 忽略规则保护。`run_accounts()` 会校验标准必填字段，单账号异常不会阻断后续账号。
+再添加 `config/services/example.example.json` 模板，并为该服务补充独立离线测试。真实 `config/example.json` 会被现有 Git 忽略规则保护。`run_accounts()` 会校验标准必填字段，单账号异常不会阻断后续账号。
 
 ## 安全说明
 
-- 不要提交 `config/services/*.json` 或 `config/push.json`；它们已在 `.gitignore` 中忽略。
+- 不要提交 `config/*.json`；它们已在 `.gitignore` 中忽略。
 - 仅提交 `*.example.json` 模板。
 - 日志会显示 YuChen 用户名和 AirPort 邮箱，但不会输出密码或 Cookie。
 - 不要将密码嵌入 URL，以免请求异常信息包含凭据。
