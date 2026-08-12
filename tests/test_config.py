@@ -80,6 +80,22 @@ class ConfigLoadingTests(unittest.TestCase):
         self.assertEqual(accounts[0]["url"], "https://shared.example/")
         self.assertEqual(accounts[1]["url"], "https://override.example/")
 
+    def test_javbus_accounts_inherit_top_level_url_and_allow_override(self):
+        accounts = config._accounts_from_value(
+            {
+                "url": "https://www.javbus.com",
+                "accounts": [
+                    {"cookies": "first"},
+                    {"url": "https://mirror.example", "cookies": "second"},
+                ],
+            },
+            "test",
+            "JavBus",
+        )
+
+        self.assertEqual(accounts[0]["url"], "https://www.javbus.com")
+        self.assertEqual(accounts[1]["url"], "https://mirror.example")
+
     def test_invalid_environment_json_skips_only_the_service(self):
         with TemporaryDirectory() as directory, patch.object(config, "SERVICE_CONFIG_DIR", Path(directory)):
             with patch.dict(os.environ, {"GLADOS_ACCOUNTS": "not-json"}, clear=True):

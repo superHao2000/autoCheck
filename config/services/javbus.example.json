@@ -1,7 +1,7 @@
 {
+  "url": "https://www.javbus.com",
   "accounts": [
     {
-      "url": "https://www.javbus.example",
       "cookies": "your_cookie_value"
     }
   ]
