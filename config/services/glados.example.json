@@ -1,7 +1,8 @@
 {
+  "url": "https://railgun.info",
   "accounts": [
     {
-      "cookies": "koa_session=your_cookie_value;..."
+      "cookies": ""
     }
   ]
 }

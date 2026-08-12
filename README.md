@@ -7,7 +7,7 @@
 | 网站/服务 | 网站用途                                       | 本项目执行的操作               | 认证方式                 |
 | --------- | ---------------------------------------------- | ------------------------------ | ------------------------ |
 | YuChen    | 提供账号登录的 iOS 资源服务站点。              | 登录后调用每日签到接口。 | 账号、密码与站点首页 URL |
-| GlaDos    | 提供网络服务与用户账户管理的平台。             | 调用官方用户签到接口。         | 登录 Cookie              |
+| GlaDos    | Railgun 网络服务与用户账户管理平台。           | 调用官方签到接口并显示积分。   | 站点首页 URL、登录 Cookie |
 | AirPort   | 泛指机场订阅服务面板；具体站点由用户自行填写。 | 登录面板后请求用户签到接口。   | 站点地址、邮箱、密码     |
 | JavBus    | 影片资料检索网站。                             | 向站点签到地址发送已登录会话。 | 站点地址与登录 Cookie    |
 
@@ -63,13 +63,15 @@ Copy-Item config/services/yuchen.example.json config/services/yuchen.json
 | 服务    | 本地文件         | 必填字段                              |
 | ------- | ---------------- | ------------------------------------- |
 | YuChen  | `yuchen.json`  | `url`、`username`、`password`   |
-| GlaDos  | `glados.json`  | `cookies`                           |
+| GlaDos  | `glados.json`  | `url`、`cookies`                    |
 | AirPort | `airport.json` | `base_url`、`email`、`password` |
 | JavBus  | `javbus.json`  | `url`、`cookies`                  |
 
 每个文件均支持多账号：将多个对象加入 `accounts` 数组即可。
 
 YuChen 的多个账号共用同一站点时，可将 `url` 写在顶层；账号内单独填写的 `url` 会覆盖顶层值。
+
+GlaDos 的多个账号同样可将 `url` 写在顶层（例如 `https://railgun.info`），各账号只需填写 `cookies`；账号内单独填写的 `url` 会覆盖顶层值。签到成功日志会显示本次获得积分和当前总积分。
 
 > 配置仅接受上表列出的标准字段名；`user`、`pass`、`cookie`、`site_url` 等旧字段不会自动转换，缺少标准字段的账号会被该服务跳过。
 

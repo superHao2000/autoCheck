@@ -53,7 +53,8 @@ def run_accounts(
         result["username"] = display_name
         if result.get("success"):
             results["success"] += 1
-            log.info("%s 签到成功: %s", service_name, display_name)
+            # 成功摘要由服务返回，不包含密码或 Cookie；积分等业务结果可直接见于日志。
+            log.info("%s 签到成功: %s - %s", service_name, display_name, result.get("message", "签到成功"))
         else:
             results["failed"] += 1
             log.warning("%s 签到失败: %s - %s", service_name, display_name, result.get("message", "未知错误"))
