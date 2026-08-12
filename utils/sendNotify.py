@@ -213,7 +213,7 @@ class WeCom:
 
 
 def wecom_app(title: str, content: str) -> None:
-    """按 QYWX_AM 的 corpId,secret,user,agentId 格式发送企业微信应用消息。"""
+    """按 QYWX_AM 的 corpid,corpsecret,touser,agentid 格式发送企业微信应用消息。"""
     parts = [part.strip() for part in _value("QYWX_AM").split(",") if part.strip()]
     if not parts:
         return
