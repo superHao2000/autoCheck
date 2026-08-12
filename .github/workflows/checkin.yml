@@ -6,21 +6,27 @@ on:
     - cron: '0 0 * * *'
   workflow_dispatch:  # 手动触发
 
+# 工作流仅需读取仓库代码，避免默认令牌拥有不必要的写入权限。
+permissions:
+  contents: read
+
 jobs:
   checkin:
     runs-on: ubuntu-latest
+    # 限制单次运行时长，避免站点请求异常时长期占用运行器。
+    timeout-minutes: 10
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.10'
+          cache: pip
 
       - name: Install dependencies
-        run: |
-          pip install requests
+        run: python -m pip install -r requirements.txt
 
       - name: Run all configured check-ins
         env:
