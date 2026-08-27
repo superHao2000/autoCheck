@@ -4,6 +4,7 @@
 import argparse
 import importlib
 import pkgutil
+import re
 import signal
 import sys
 from dataclasses import dataclass
@@ -24,6 +25,10 @@ class Service:
 
 # 仅保存本次运行中已执行服务的结果，供汇总和通知复用。
 SUMMARY: dict[str, dict] = {}
+MAX_NOTIFICATION_MESSAGE_LENGTH = 300
+SENSITIVE_MESSAGE_PATTERN = re.compile(
+    r"(?i)\b(password|passwd|cookie|token|secret|authorization)\b\s*[:=]\s*[^\s,;，；]+"
+)
 
 
 def signal_handler(_sig, _frame):
@@ -111,6 +116,42 @@ def is_valid_result(result: object, expected_total: int) -> bool:
     )
 
 
+def _safe_notification_message(message: object) -> str:
+    """清理账号结果信息，避免服务端回显的凭据进入第三方通知。"""
+    text = re.sub(r"\s+", " ", str(message or "未提供结果")).strip()
+    text = SENSITIVE_MESSAGE_PATTERN.sub(r"\1=已隐藏", text)
+    if len(text) > MAX_NOTIFICATION_MESSAGE_LENGTH:
+        return f"{text[:MAX_NOTIFICATION_MESSAGE_LENGTH]}…"
+    return text
+
+
+def format_notification(summary: dict[str, dict]) -> str:
+    """将已执行服务的统一结果格式化为包含账号明细的安全通知正文。"""
+    sections: list[str] = []
+    total_success = 0
+    total_failed = 0
+    for service_name, result in summary.items():
+        total = result.get("total", 0)
+        success = result.get("success", 0)
+        failed = result.get("failed", 0)
+        total_success += success
+        total_failed += failed
+
+        heading = f"{service_name}：成功 {success}/{total}"
+        if failed:
+            heading += f"，失败 {failed}"
+        lines = [heading]
+        for detail in result.get("details", []):
+            account_name = detail.get("username") or "账号"
+            state = "✓" if detail.get("success") else "✗"
+            message = _safe_notification_message(detail.get("message"))
+            lines.append(f"  {state} {account_name}：{message}")
+        sections.append("\n".join(lines))
+
+    sections.append(f"签到汇总：成功 {total_success}，失败 {total_failed}")
+    return "\n\n".join(sections)
+
+
 def main(local_only: bool = False, notify: bool = True) -> int:
     """加载配置、依次执行已发现服务，并返回适合调度器的退出码。"""
     log.info("========== AutoCheck 开始 ==========")
@@ -139,10 +180,7 @@ def send_notification() -> None:
     try:
         from utils.sendNotify import send
 
-        content = "\n".join(
-            f"{name}: 成功 {result.get('success', 0)}/{result.get('total', 0)}"
-            for name, result in SUMMARY.items()
-        )
+        content = format_notification(SUMMARY)
         send("AutoCheck 签到结果", content)
     except Exception:
         log.exception("推送通知失败")

@@ -122,6 +122,8 @@ Copy-Item config/services/push.example.json config/push.json
 
 也可在调度器中使用 `PUSH_CONFIG` 环境变量传入同样的 JSON 对象。
 
+通知正文会显示已执行服务的成功数、每个账号的签到结果，以及服务返回的积分或里程信息。失败账号会显示经过安全清理的失败原因；密码、Cookie 和 Token 不会写入通知。
+
 ## 运行与测试
 
 ### 离线测试
