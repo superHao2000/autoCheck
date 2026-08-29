@@ -3,8 +3,12 @@
 /.idea/
 /shelf/
 /workspace.xml
-# 本地代理的会话状态与工作文件不属于项目源码。
-/.agents/
+# 仅提交项目级 Skills；其余代理会话状态和工作文件保留在本机。
+/.agents/*
+!/.agents/skills/
+!/.agents/skills/**
+# Skills 锁文件只保留在本机，不参与版本管理。
+/skills-lock.json
 
 # ── Python 运行环境与缓存 ──────────────────────────────────────────────────
 # 虚拟环境和字节码可由 requirements.txt 重新生成。
