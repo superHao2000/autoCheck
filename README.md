@@ -89,7 +89,7 @@ JavBus 的多个账号也支持顶层共享 `url`（模板默认 `https://www.ja
 
 同一服务的账号会按上述顺序保留；重复账号只保留优先级更高的一项，日志会提示检测到重复账号，但不会输出账号或凭据。三个来源都没有有效账号时，服务才会被跳过。
 
-> 此优先级仅适用于 `main.py`、GitHub Actions 和青龙的生产运行；下方的本地真实测试只读取本地 JSON，不读取环境变量。
+> 此优先级仅适用于 `main.py`、GitHub Actions 和青龙的生产运行；`Test` 分支中的本地真实测试只读取本地 JSON，不读取环境变量。
 
 单服务环境变量的值是 JSON 数组：
 
@@ -124,32 +124,22 @@ Copy-Item config/services/push.example.json config/push.json
 
 通知正文会显示已执行服务的成功数、每个账号的签到结果，以及服务返回的积分或里程信息。失败账号会显示经过安全清理的失败原因；密码、Cookie 和 Token 不会写入通知。
 
-## 运行与测试
+## 运行与开发流程
 
-### 离线测试
-
-离线测试使用 Mock 验证请求和解析逻辑，不读取真实配置，也不会访问网站：
+`master` 是生产分支，保留签到、配置和通知代码；完整代码与测试保留在 `Test` 分支。
 
 ```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s tests -t . -v
+.\.venv\Scripts\python.exe main.py
 ```
 
-### 本地真实签到
+后续开发统一采用以下流程：
 
-直接运行一个服务的测试文件时，只读取该服务对应的本地 JSON，不读取环境变量，也不会发送通知：
+1. 从 `Test` 创建功能或修复分支。
+2. 在功能分支修改代码并执行离线测试，再合并回 `Test`。
+3. 在 `Test` 完成验证后，将生产变更合并到 `master`；提交前移除 `tests/`，并检查其他新增测试文件及仅用于测试的配置。
+4. 检查生产入口和暂存差异后提交。若合并出现测试文件的修改/删除冲突，在 `master` 保持这些文件删除。
 
-```powershell
-.\.venv\Scripts\python.exe -m tests.test_yuchen
-.\.venv\Scripts\python.exe -m tests.test_glados
-.\.venv\Scripts\python.exe -m tests.test_airport
-.\.venv\Scripts\python.exe -m tests.test_javbus
-```
-
-汇总测试只读取所有本地 JSON，不读取环境变量，也不发送通知：
-
-```powershell
-.\.venv\Scripts\python.exe main.py --local-only
-```
+测试文件的删除只属于生产分支，不向 `Test` 回合该删除操作。每次同步都需要检查排除范围；普通 Git 合并不会自动保证测试文件始终缺席。
 
 文件不存在、账号为空或 JSON 格式错误时，程序会输出原因并跳过受影响的服务。
 登录或签到遇到超时、网络错误、限流、服务异常等临时失败时，每个账号最多重试 3 次；成功后立即停止重试。密码错误、Cookie 失效等明确的鉴权失败不会重试。重试及多账号切换前会随机等待 5–10 秒，通知只显示每个账号的最终结果。
@@ -193,7 +183,7 @@ def run(accounts: list) -> dict:
     return run_accounts(SERVICE_NAME, accounts, ACCOUNT_FIELDS, checkin)
 ```
 
-再添加 `config/services/example.example.json` 模板，并为该服务补充独立离线测试。真实 `config/example.json` 会被现有 Git 忽略规则保护。`run_accounts()` 会校验标准必填字段，单账号异常不会阻断后续账号。
+在从 `Test` 创建的开发分支中添加 `config/services/example.example.json` 模板，并为该服务补充独立离线测试；同步到 `master` 时排除测试文件。真实 `config/example.json` 会被现有 Git 忽略规则保护。`run_accounts()` 会校验标准必填字段，单账号异常不会阻断后续账号。
 
 ## 安全说明
 
