@@ -73,6 +73,17 @@ class GlaDosUnitTests(unittest.TestCase):
         self.assertFalse(glados.checkin("https://railgun.info", "session=test")["success"])
 
     @patch("checkin.glados.requests.post")
+    def test_invalid_cookie_is_not_retryable(self, post):
+        response = MagicMock()
+        response.json.return_value = {"code": 1, "message": "Please login first: cookie expired"}
+        post.return_value = response
+
+        result = glados.checkin("https://railgun.info", "session=test")
+
+        self.assertFalse(result["success"])
+        self.assertFalse(result["retryable"])
+
+    @patch("checkin.glados.requests.post")
     def test_points_field_is_used_when_latest_record_is_unavailable(self, post):
         response = MagicMock()
         response.json.return_value = {"code": 0, "message": "签到成功", "points": 3}

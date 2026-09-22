@@ -60,6 +60,7 @@ class YuChenUnitTests(unittest.TestCase):
         self.assertFalse(result["success"])
         self.assertNotIn("alice", result["message"])
         self.assertNotIn("<strong>", result["message"])
+        self.assertFalse(result["retryable"])
 
 
 if __name__ == "__main__":

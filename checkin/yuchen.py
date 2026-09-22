@@ -16,6 +16,18 @@ SERVICE_NAME = "YuChen"
 CONFIG_FILENAME = "yuchen.json"
 ENV_KEY = "YUCHEN_ACCOUNTS"
 ACCOUNT_FIELDS = ("url", "username", "password")
+AUTH_FAILURE_MARKERS = (
+    "账号或密码",
+    "用户名或密码",
+    "密码错误",
+    "密码不正确",
+    "账号不存在",
+    "用户不存在",
+    "未注册",
+    "invalid password",
+    "invalid credentials",
+    "incorrect password",
+)
 
 
 def _credit_summary(session: requests.Session, url: str, headers: dict) -> tuple[str | None, str | None]:
@@ -38,6 +50,12 @@ def _safe_message(message: object, username: str) -> str:
     """移除站点响应中的 HTML 与账号标识，避免错误日志泄露登录信息。"""
     text = re.sub(r'<[^>]+>', '', unescape(str(message)))
     return re.sub(re.escape(username), '该账号', text, flags=re.IGNORECASE).strip()
+
+
+def _is_auth_failure(message: str) -> bool:
+    """判断站点是否已明确拒绝账号密码，避免对永久错误重复登录。"""
+    lowered = message.lower()
+    return any(marker in lowered for marker in AUTH_FAILURE_MARKERS)
 
 
 def checkin(url: str, username: str, password: str) -> dict:
@@ -68,10 +86,16 @@ def checkin(url: str, username: str, password: str) -> dict:
             headers=headers,
             timeout=30,
         )
+        if login_response.status_code in (401, 403):
+            return {'success': False, 'message': 'YuChen 登录凭据无效', 'retryable': False}
         login_data = login_response.json()
         if not isinstance(login_data, dict) or login_data.get('success') != 'success':
             message = login_data.get('msg', '登录失败') if isinstance(login_data, dict) else '登录响应格式错误'
-            return {'success': False, 'message': _safe_message(message, username)}
+            message = _safe_message(message, username)
+            result = {'success': False, 'message': message}
+            if _is_auth_failure(message):
+                result['retryable'] = False
+            return result
 
         sign_response = session.post(ajax_url, data={'action': 'daily_sign'}, headers=headers, timeout=30)
         sign_data = sign_response.json()

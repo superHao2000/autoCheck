@@ -82,9 +82,15 @@ def checkin(url: str, cookies: str) -> dict:
     try:
         before = _credit_balance(session.get(credit_url, headers=headers, timeout=30).text)
         response = session.get(forum_url, headers=headers, timeout=30)
+        if response.status_code in (401, 403):
+            return {"success": False, "message": "JavBus Cookie 已失效", "retryable": False}
         response.raise_for_status()
         if not _is_logged_in(response.text):
-            return {"success": False, "message": "未检测到登录状态，请更新 JavBus Cookie"}
+            return {
+                "success": False,
+                "message": "未检测到登录状态，请更新 JavBus Cookie",
+                "retryable": False,
+            }
         after = _credit_balance(session.get(credit_url, headers=headers, timeout=30).text)
         remaining = _upgrade_remaining(session.get(group_url, headers=headers, timeout=30).text)
         return {"success": True, "message": _summary_message(before, after, remaining)}

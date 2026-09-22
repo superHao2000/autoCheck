@@ -58,6 +58,7 @@ class JavBusUnitTests(unittest.TestCase):
 
         self.assertFalse(result["success"])
         self.assertIn("Cookie", result["message"])
+        self.assertFalse(result["retryable"])
         session.close.assert_called_once()
 
     @patch("checkin.javbus.requests.Session")

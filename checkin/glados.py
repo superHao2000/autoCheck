@@ -14,6 +14,7 @@ SERVICE_NAME = "GlaDos"
 CONFIG_FILENAME = "glados.json"
 ENV_KEY = "GLADOS_ACCOUNTS"
 ACCOUNT_FIELDS = ("url", "cookies")
+AUTH_FAILURE_MARKERS = ("cookie", "未登录", "登录失效", "unauthorized", "forbidden", "not logged", "please login")
 
 
 def _format_points(value: object) -> str:
@@ -41,6 +42,12 @@ def _points_message(data: dict) -> str:
     return f"{message}，{'，'.join(details)}" if details else message
 
 
+def _is_auth_failure(message: str) -> bool:
+    """判断接口是否明确提示 Cookie 失效，避免无意义重试。"""
+    lowered = message.lower()
+    return any(marker in lowered for marker in AUTH_FAILURE_MARKERS)
+
+
 def checkin(url: str, cookies: str) -> dict:
     """调用 Railgun 签到接口，并从最新记录返回本次与当前积分。"""
     base_url = url.rstrip("/")
@@ -60,6 +67,8 @@ def checkin(url: str, cookies: str) -> dict:
             headers=headers,
             timeout=30,
         )
+        if response.status_code in (401, 403):
+            return {"success": False, "message": "GlaDos Cookie 已失效", "retryable": False}
         response.raise_for_status()
         data = response.json()
     except requests.exceptions.JSONDecodeError:
@@ -76,7 +85,10 @@ def checkin(url: str, cookies: str) -> dict:
     already_checked = "already checked" in message.lower() or "已签到" in message or "observation logged" in message.lower()
     if already_checked:
         return {"success": True, "message": _points_message(data)}
-    return {"success": False, "message": message}
+    result = {"success": False, "message": message}
+    if _is_auth_failure(message):
+        result["retryable"] = False
+    return result
 
 
 def run(accounts: list) -> dict:

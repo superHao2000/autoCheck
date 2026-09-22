@@ -11,6 +11,24 @@ SERVICE_NAME = "AirPort"
 CONFIG_FILENAME = "airport.json"
 ENV_KEY = "AIRPORT_ACCOUNTS"
 ACCOUNT_FIELDS = ("base_url", "email", "password")
+AUTH_FAILURE_MARKERS = (
+    "账号或密码",
+    "邮箱或密码",
+    "密码错误",
+    "密码不正确",
+    "账号不存在",
+    "用户不存在",
+    "bad password",
+    "invalid password",
+    "invalid credentials",
+    "incorrect password",
+)
+
+
+def _is_auth_failure(message: str) -> bool:
+    """判断登录响应是否明确拒绝账号密码，临时服务错误仍允许重试。"""
+    lowered = message.lower()
+    return any(marker in lowered for marker in AUTH_FAILURE_MARKERS)
 
 
 def checkin(base_url: str, email: str, password: str) -> dict:
@@ -34,9 +52,12 @@ def checkin(base_url: str, email: str, password: str) -> dict:
         }
         login_resp = session.post(login_url, data=login_data, timeout=30)
         
-        # 非 200 表示请求层失败，不再尝试签到。
+        # 401/403 表示凭据被明确拒绝，其他状态交给公共执行器重试。
         if login_resp.status_code != 200:
-            return {'success': False, 'message': f'登录请求失败: {login_resp.status_code}'}
+            result = {'success': False, 'message': f'登录请求失败: {login_resp.status_code}'}
+            if login_resp.status_code in (401, 403):
+                result['retryable'] = False
+            return result
         
         # 尝试解析 JSON 响应
         try:
@@ -46,7 +67,10 @@ def checkin(base_url: str, email: str, password: str) -> dict:
                 pass  # 登录成功，继续签到。
             elif login_json.get('success') is False:
                 msg = login_json.get('message', '登录失败')
-                return {'success': False, 'message': f'登录失败: {msg}'}
+                result = {'success': False, 'message': f'登录失败: {msg}'}
+                if _is_auth_failure(str(msg)):
+                    result['retryable'] = False
+                return result
             else:
                 # 旧版 API 未提供稳定 JSON 结构，回退到文本判断。
                 if '登录成功' in login_resp.text or 'success' in login_resp.text.lower():

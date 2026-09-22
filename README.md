@@ -152,6 +152,7 @@ Copy-Item config/services/push.example.json config/push.json
 ```
 
 文件不存在、账号为空或 JSON 格式错误时，程序会输出原因并跳过受影响的服务。
+登录或签到遇到超时、网络错误、限流、服务异常等临时失败时，每个账号最多重试 3 次；成功后立即停止重试。密码错误、Cookie 失效等明确的鉴权失败不会重试。重试及多账号切换前会随机等待 5–10 秒，通知只显示每个账号的最终结果。
 
 ## GitHub Actions 与青龙
 

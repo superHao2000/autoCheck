@@ -31,7 +31,10 @@ class AirPortUnitTests(unittest.TestCase):
         session = session_class.return_value
         session.post.return_value = response({"success": False, "message": "bad password"})
 
-        self.assertFalse(airport.checkin("https://airport.example", "alice@example.test", "secret")["success"])
+        result = airport.checkin("https://airport.example", "alice@example.test", "secret")
+
+        self.assertFalse(result["success"])
+        self.assertFalse(result["retryable"])
         self.assertEqual(session.post.call_count, 1)
 
 
