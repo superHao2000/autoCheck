@@ -3,10 +3,9 @@
 /.idea/
 /shelf/
 /workspace.xml
-# 仅提交项目级 Skills；其余代理会话状态和工作文件保留在本机。
-/.agents/*
-!/.agents/skills/
-!/.agents/skills/**
+# 生产分支不跟踪智能体技能、规范及会话状态。
+/.agents/
+/AGENTS.md
 # Skills 锁文件只保留在本机，不参与版本管理。
 /skills-lock.json
 
